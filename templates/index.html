@@ -78,16 +78,15 @@
       </div>
       
       <div class="modal-body">
-        <!-- Abas Entrar / Criar Conta -->
-        <div class="auth-tabs">
-          <button type="button" class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Entrar</button>
-          <button type="button" class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Criar Conta</button>
+        <div style="text-align: center; margin-bottom: 16px;">
+          <h4 style="font-size: 16px; color: #fff; margin-bottom: 4px;">Acesso Restrito</h4>
+          <p style="font-size: 12px; color: var(--text-muted);">Entre com suas credenciais para gerenciar a central</p>
         </div>
 
         <form id="authForm" onsubmit="handleAuthSubmit(event)">
           <div class="form-group">
             <label>E-mail</label>
-            <input type="email" id="authEmail" class="form-control" placeholder="seu-email@dominio.com" required>
+            <input type="email" id="authEmail" class="form-control" value="pedro9984@gmail.com" required>
           </div>
 
           <div class="form-group" style="margin-top: 10px;">

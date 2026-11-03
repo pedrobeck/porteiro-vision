@@ -30,26 +30,6 @@ function registerPWA() {
 }
 
 // --- AUTH CONTROLS (SUPABASE) ---
-function switchAuthTab(mode) {
-  currentAuthMode = mode;
-  const tabLogin = document.getElementById("tabLogin");
-  const tabReg = document.getElementById("tabRegister");
-  const submitBtn = document.getElementById("authSubmitBtn");
-  const alertBox = document.getElementById("authAlert");
-  alertBox.className = "test-alert";
-  alertBox.style.display = "none";
-
-  if (mode === "login") {
-    tabLogin.classList.add("active");
-    tabReg.classList.remove("active");
-    submitBtn.textContent = "Entrar na Central";
-  } else {
-    tabLogin.classList.remove("active");
-    tabReg.classList.add("active");
-    submitBtn.textContent = "Cadastrar Conta";
-  }
-}
-
 async function handleAuthSubmit(e) {
   e.preventDefault();
   const email = document.getElementById("authEmail").value.trim();
@@ -60,28 +40,20 @@ async function handleAuthSubmit(e) {
   alertBox.className = "test-alert";
   alertBox.style.display = "none";
   submitBtn.disabled = true;
-  submitBtn.textContent = "Processando...";
+  submitBtn.textContent = "Verificando...";
 
   try {
-    if (currentAuthMode === "login") {
-      await supabaseSignIn(email, password);
-      alertBox.className = "test-alert success";
-      alertBox.textContent = "✓ Login efetuado com sucesso!";
-      alertBox.style.display = "block";
-    } else {
-      await supabaseSignUp(email, password);
-      alertBox.className = "test-alert success";
-      alertBox.textContent = "✓ Conta criada! Verifique seu e-mail ou faça login.";
-      alertBox.style.display = "block";
-      setTimeout(() => switchAuthTab("login"), 1800);
-    }
+    await supabaseSignIn(email, password);
+    alertBox.className = "test-alert success";
+    alertBox.textContent = "✓ Acesso autorizado!";
+    alertBox.style.display = "block";
   } catch (err) {
     alertBox.className = "test-alert error";
-    alertBox.textContent = "✕ " + (err.message || "Erro na autenticação");
+    alertBox.textContent = "✕ " + (err.message || "Erro na autenticação. Verifique a senha.");
     alertBox.style.display = "block";
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = currentAuthMode === "login" ? "Entrar na Central" : "Cadastrar Conta";
+    submitBtn.textContent = "Entrar na Central";
   }
 }
 
