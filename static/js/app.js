@@ -1,13 +1,22 @@
 // PORTEIRO VISION - DASHBOARD CONTROLLER
 
-let cameras = [];
+window.cameras = [];
 let currentLayout = "auto";
 let focusedCameraId = null;
 let pollInterval = null;
+let currentAuthMode = "login"; // 'login' ou 'register'
 
 document.addEventListener("DOMContentLoaded", () => {
   initLayoutControls();
   initModal();
+  
+  // Inicializa o Supabase (usa chaves salvas ou variáveis padrão)
+  const isSbReady = initSupabase();
+  if (!isSbReady) {
+    // Se não tiver chave configurada, permite usar localmente mas exibe modal
+    console.log("[Supabase] Aguardando configuração de credenciais no modal.");
+  }
+
   loadCameras();
   startStatusPolling();
   registerPWA();
@@ -17,6 +26,81 @@ document.addEventListener("DOMContentLoaded", () => {
 function registerPWA() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
+}
+
+// --- AUTH CONTROLS (SUPABASE) ---
+function switchAuthTab(mode) {
+  currentAuthMode = mode;
+  const tabLogin = document.getElementById("tabLogin");
+  const tabReg = document.getElementById("tabRegister");
+  const submitBtn = document.getElementById("authSubmitBtn");
+  const alertBox = document.getElementById("authAlert");
+  alertBox.className = "test-alert";
+  alertBox.style.display = "none";
+
+  if (mode === "login") {
+    tabLogin.classList.add("active");
+    tabReg.classList.remove("active");
+    submitBtn.textContent = "Entrar na Central";
+  } else {
+    tabLogin.classList.remove("active");
+    tabReg.classList.add("active");
+    submitBtn.textContent = "Cadastrar Conta";
+  }
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  const alertBox = document.getElementById("authAlert");
+  const submitBtn = document.getElementById("authSubmitBtn");
+
+  alertBox.className = "test-alert";
+  alertBox.style.display = "none";
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Processando...";
+
+  try {
+    if (currentAuthMode === "login") {
+      await supabaseSignIn(email, password);
+      alertBox.className = "test-alert success";
+      alertBox.textContent = "✓ Login efetuado com sucesso!";
+      alertBox.style.display = "block";
+    } else {
+      await supabaseSignUp(email, password);
+      alertBox.className = "test-alert success";
+      alertBox.textContent = "✓ Conta criada! Verifique seu e-mail ou faça login.";
+      alertBox.style.display = "block";
+      setTimeout(() => switchAuthTab("login"), 1800);
+    }
+  } catch (err) {
+    alertBox.className = "test-alert error";
+    alertBox.textContent = "✕ " + (err.message || "Erro na autenticação");
+    alertBox.style.display = "block";
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentAuthMode === "login" ? "Entrar na Central" : "Cadastrar Conta";
+  }
+}
+
+function toggleSupabaseConfig() {
+  const box = document.getElementById("supabaseConfigBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+  document.getElementById("cfgSbUrl").value = localStorage.getItem("sb_url") || "";
+  document.getElementById("cfgSbKey").value = localStorage.getItem("sb_anon_key") || "";
+}
+
+function saveCustomSupabaseConfig() {
+  const url = document.getElementById("cfgSbUrl").value.trim();
+  const key = document.getElementById("cfgSbKey").value.trim();
+  if (url && key) {
+    initSupabase(url, key);
+    alert("Chaves do Supabase salvas com sucesso! Agora você pode criar conta ou entrar.");
+    document.getElementById("supabaseConfigBox").style.display = "none";
+  } else {
+    alert("Informe a URL e a Anon Key do projeto Supabase.");
   }
 }
 
@@ -37,7 +121,6 @@ function setLayout(layout) {
   currentLayout = layout;
   const grid = document.getElementById("cameraGrid");
   grid.className = `camera-grid layout-${layout}`;
-  // Ao trocar layout manual, remove foco
   unfocusCamera();
 }
 
@@ -45,7 +128,7 @@ function setLayout(layout) {
 async function loadCameras() {
   try {
     const res = await fetch("/api/cameras");
-    cameras = await res.json();
+    window.cameras = await res.json();
     renderGrid();
   } catch (err) {
     console.error("Erro ao carregar câmeras:", err);
@@ -83,7 +166,7 @@ function renderGrid() {
   const grid = document.getElementById("cameraGrid");
   grid.innerHTML = "";
 
-  if (cameras.length === 0) {
+  if (!window.cameras || window.cameras.length === 0) {
     grid.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📹</div>
@@ -97,7 +180,7 @@ function renderGrid() {
     return;
   }
 
-  cameras.forEach((cam) => {
+  window.cameras.forEach((cam) => {
     const cell = document.createElement("div");
     cell.className = "camera-cell";
     cell.dataset.id = cam.id;
@@ -126,7 +209,6 @@ function renderGrid() {
     `;
 
     cell.addEventListener("click", (e) => {
-      // Se não clicou num botão, alterna o foco
       if (!e.target.closest("button") && !e.target.closest(".ptz-joystick")) {
         toggleFocusCamera(cam.id);
       }
@@ -152,7 +234,7 @@ function renderPtzJoystick(camId) {
   `;
 }
 
-// --- FOCO E TELA CHEIA (INCLINADO A TABLET/PORTEIRO) ---
+// --- FOCO E TELA CHEIA ---
 function toggleFocusCamera(camId, event) {
   if (event) event.stopPropagation();
 
@@ -166,7 +248,6 @@ function toggleFocusCamera(camId, event) {
     cell.classList.add("focused");
     focusedCameraId = camId;
 
-    // Se tiver PTZ, exibe o joystick de controle
     const ptz = document.getElementById(`ptz-${camId}`);
     if (ptz) ptz.style.display = "grid";
   }
@@ -230,7 +311,6 @@ function initModal() {
   closeBtn.onclick = closeModal;
   cancelBtn.onclick = closeModal;
   
-  // Ao mudar a marca, preenche dados comuns automaticamente
   brandSelect.onchange = () => {
     const brand = brandSelect.value;
     const portInput = document.getElementById("camPort");
@@ -264,7 +344,7 @@ function openAddCameraModal() {
 function openEditCameraModal(camId, event) {
   if (event) event.stopPropagation();
   editingCamId = camId;
-  const cam = cameras.find((c) => c.id === camId);
+  const cam = window.cameras.find((c) => c.id === camId);
   if (!cam) return;
 
   document.getElementById("modalTitle").textContent = "Configurar Câmera";
@@ -332,6 +412,7 @@ async function saveCameraForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       });
+      data.id = editingCamId;
     } else {
       res = await fetch("/api/cameras", {
         method: "POST",
@@ -341,6 +422,10 @@ async function saveCameraForm() {
     }
 
     if (res.ok) {
+      // Salva também na nuvem do Supabase se o usuário estiver logado
+      if (typeof saveCameraToSupabase === "function") {
+        await saveCameraToSupabase(data);
+      }
       closeModal();
       await loadCameras();
     } else {
@@ -357,6 +442,9 @@ async function deleteCamera(camId) {
   try {
     const res = await fetch(`/api/cameras/${camId}`, { method: "DELETE" });
     if (res.ok) {
+      if (typeof deleteCameraFromSupabase === "function") {
+        await deleteCameraFromSupabase(camId);
+      }
       closeModal();
       await loadCameras();
     }

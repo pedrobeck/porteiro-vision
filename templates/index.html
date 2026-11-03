@@ -11,6 +11,9 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+  
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -20,7 +23,7 @@
       <div class="brand-logo">🛡️</div>
       <div>
         <span class="brand-title">PORTEIRO VISION</span>
-        <span class="brand-badge">PRO</span>
+        <span class="brand-badge">ONLINE</span>
       </div>
     </div>
 
@@ -40,6 +43,13 @@
         Tablet IP: <strong>http://{{ server_ip }}:8080</strong>
       </div>
 
+      <!-- Usuário Supabase Autenticado -->
+      <div id="userProfilePill" class="user-profile-pill" style="display: none;">
+        <span class="user-avatar">👤</span>
+        <span id="userEmailDisplay" class="user-email"></span>
+        <button class="logout-btn" onclick="supabaseSignOut()" title="Sair da Conta">Sair</button>
+      </div>
+
       <!-- Botão Tela Cheia -->
       <button class="action-icon-btn" onclick="toggleFullscreen()" title="Tela Cheia">⛶</button>
 
@@ -56,6 +66,64 @@
       <!-- Câmeras injetadas dinamicamente via app.js -->
     </div>
   </main>
+
+  <!-- MODAL DE AUTENTICAÇÃO SUPABASE -->
+  <div class="modal-backdrop open" id="authModal">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="brand-logo" style="width: 26px; height: 26px; font-size: 14px;">🛡️</div>
+          <h3 class="modal-title">Porteiro Vision Cloud</h3>
+        </div>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Abas Entrar / Criar Conta -->
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Entrar</button>
+          <button type="button" class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Criar Conta</button>
+        </div>
+
+        <form id="authForm" onsubmit="handleAuthSubmit(event)">
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="authEmail" class="form-control" placeholder="seu-email@dominio.com" required>
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Senha</label>
+            <input type="password" id="authPassword" class="form-control" placeholder="••••••••" required>
+          </div>
+
+          <!-- Alerta de erro de autenticação -->
+          <div id="authAlert" class="test-alert" style="margin-top: 12px;"></div>
+
+          <button type="submit" class="btn-primary" id="authSubmitBtn" style="width: 100%; justify-content: center; margin-top: 16px; padding: 12px;">
+            Entrar na Central
+          </button>
+        </form>
+
+        <!-- Configuração Opcional do Supabase (para customizar URL/Key) -->
+        <div style="text-align: center; margin-top: 10px;">
+          <span class="auth-config-toggle" onclick="toggleSupabaseConfig()">⚙️ Configurar chaves do Supabase</span>
+        </div>
+
+        <div id="supabaseConfigBox" style="display: none; margin-top: 12px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
+          <div class="form-group">
+            <label style="font-size: 10px;">Supabase Project URL</label>
+            <input type="text" id="cfgSbUrl" class="form-control" style="font-size: 12px;" placeholder="https://xyz.supabase.co">
+          </div>
+          <div class="form-group" style="margin-top: 6px;">
+            <label style="font-size: 10px;">Supabase Anon Key</label>
+            <input type="password" id="cfgSbKey" class="form-control" style="font-size: 12px;" placeholder="eyJhbGciOi...">
+          </div>
+          <button type="button" class="btn-secondary" onclick="saveCustomSupabaseConfig()" style="width: 100%; margin-top: 8px; font-size: 12px;">
+            Salvar Chaves
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL DE CADASTRO / EDIÇÃO DE CÂMERA -->
   <div class="modal-backdrop" id="cameraModal">
@@ -152,6 +220,11 @@
     </div>
   </div>
 
+  <script>
+    window.ENV_SUPABASE_URL = "{{ supabase_url }}";
+    window.ENV_SUPABASE_ANON_KEY = "{{ supabase_anon_key }}";
+  </script>
+  <script src="/static/js/supabase.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

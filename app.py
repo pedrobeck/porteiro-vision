@@ -8,6 +8,9 @@ from dvrip_client import DVRIPClient
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+
 # Inicia workers de todas as câmeras salvas
 manager.start_all()
 
@@ -25,7 +28,12 @@ LOCAL_IP = get_local_ip()
 
 @app.route("/")
 def index():
-    return render_template("index.html", server_ip=LOCAL_IP)
+    return render_template(
+        "index.html",
+        server_ip=LOCAL_IP,
+        supabase_url=SUPABASE_URL,
+        supabase_anon_key=SUPABASE_ANON_KEY
+    )
 
 @app.route("/manifest.json")
 def manifest():
@@ -98,7 +106,6 @@ def api_test_camera():
     }
     url = build_rtsp_url(test_cam)
     
-    # Testa abertura com timeout rápido
     os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|fflags;nobuffer|max_delay;500000"
     cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
     cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000)
@@ -154,10 +161,9 @@ def api_ptz_control(cam_id):
         return jsonify({"error": "Câmera não encontrada"}), 404
     
     data = request.json or {}
-    cmd = data.get("command") # Up, Down, Left, Right, Stop, ZoomIn, ZoomOut
+    cmd = data.get("command")
     step = int(data.get("step", 4))
 
-    # Mapeamento para DVRIP (Xiongmai)
     cmd_map = {
         "up": "DirectionUp",
         "down": "DirectionDown",
@@ -190,9 +196,10 @@ def api_status():
     })
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
     print("=" * 60)
     print("🚀 PORTEIRO VISION - CENTRAL DE CÂMERAS INTELIGENTE")
-    print(f"👉 Acesso Local:     http://localhost:8080")
-    print(f"👉 Acesso no Tablet: http://{LOCAL_IP}:8080")
+    print(f"👉 Acesso Local:     http://localhost:{port}")
+    print(f"👉 Acesso no Tablet: http://{LOCAL_IP}:{port}")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=8080, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

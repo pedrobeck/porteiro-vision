@@ -144,6 +144,44 @@ body {
   color: var(--accent-emerald);
 }
 
+/* USER PROFILE PILL IN HEADER */
+.user-profile-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid rgba(0, 230, 118, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.user-avatar {
+  font-size: 14px;
+}
+.user-email {
+  color: #fff;
+  font-weight: 600;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-btn {
+  background: rgba(255, 51, 102, 0.2);
+  border: 1px solid rgba(255, 51, 102, 0.4);
+  color: var(--accent-danger);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:hover {
+  background: var(--accent-danger);
+  color: #fff;
+}
+
 /* --- MAIN GRID CONTAINER --- */
 .viewport-container {
   flex: 1;
@@ -177,7 +215,7 @@ body {
   grid-template-rows: repeat(3, 1fr);
 }
 
-/* Modo Hero / Porteiro: 1 câmera principal grande e miniaturas ao lado */
+/* Modo Hero / Porteiro */
 .camera-grid.layout-hero {
   grid-template-columns: 2.2fr 1fr;
   grid-template-rows: repeat(auto-fill, 1fr);
@@ -377,14 +415,14 @@ body {
   color: rgba(0, 210, 255, 0.3);
 }
 
-/* --- MODAL DIALOG --- */
+/* --- MODAL DIALOGS --- */
 .modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(4, 7, 12, 0.8);
+  background: rgba(4, 7, 12, 0.85);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -436,6 +474,41 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* AUTH TABS & ELEMENTS */
+.auth-tabs {
+  display: flex;
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+}
+.auth-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.auth-tab.active {
+  background: rgba(0, 210, 255, 0.2);
+  color: var(--accent-cyan);
+}
+
+.auth-config-toggle {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 8px;
 }
 
 .form-group {
