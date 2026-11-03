@@ -22,6 +22,7 @@ class CameraWorker:
         self.name = camera["name"]
         self.running = True
         self.thread = None
+        self.proc = None
         self.lock = threading.Lock()
         
         self.latest_frame = None
@@ -39,6 +40,11 @@ class CameraWorker:
 
     def stop(self):
         self.running = False
+        if self.proc:
+            try:
+                self.proc.terminate()
+            except Exception:
+                pass
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)
 
@@ -115,6 +121,7 @@ class CameraWorker:
             return
 
         self.status = "ONLINE"
+        self.proc = proc
         fps_timer = time.time()
         frames_in_sec = 0
         buffer = b""
@@ -124,32 +131,44 @@ class CameraWorker:
             if not chunk:
                 break
             buffer += chunk
+
             a = buffer.find(b"\xff\xd8")
-            if a != -1:
-                b = buffer.find(b"\xff\xd9", a + 2)
-                if b != -1:
-                    jpg = buffer[a:b+2]
-                    buffer = buffer[b+2:]
-                    if len(jpg) > 5000:
-                        self.last_seen = datetime.now()
-                        self.frame_count += 1
-                        frames_in_sec += 1
+            if a == -1:
+                buffer = b""
+                continue
+            if a > 0:
+                buffer = buffer[a:]
 
-                        now = time.time()
-                        if now - fps_timer >= 1.0:
-                            self.fps = round(frames_in_sec / (now - fps_timer), 1)
-                            frames_in_sec = 0
-                            fps_timer = now
+            b = buffer.find(b"\xff\xd9", 2)
+            if b == -1:
+                if len(buffer) > 2000000:
+                    buffer = b""
+                continue
 
-                        with self.lock:
-                            self.latest_jpeg = jpg
-            elif len(buffer) > 100000:
-                buffer = buffer[-4096:]
+            jpg = buffer[:b+2]
+            buffer = buffer[b+2:]
+
+            if len(jpg) > 1000:
+                self.last_seen = datetime.now()
+                self.frame_count += 1
+                frames_in_sec += 1
+
+                now = time.time()
+                if now - fps_timer >= 1.0:
+                    self.fps = round(frames_in_sec / (now - fps_timer), 1)
+                    frames_in_sec = 0
+                    fps_timer = now
+
+                with self.lock:
+                    self.latest_jpeg = jpg
+
+                time.sleep(0.015)
 
         try:
             proc.terminate()
         except Exception:
             pass
+        self.proc = None
 
         self.status = "OFFLINE"
         with self.lock:

@@ -11,25 +11,13 @@ $asm = [System.Reflection.Assembly]::LoadFrom('C:\Program Files\Intelbras\SIMNex
 $type = $asm.GetType('SIMNext.P2PSDK.VVEyeAdapter')
 $adapter = [Activator]::CreateInstance($type, @($null, $null))
 
-function Start-Tunnel {
-    [Console]::WriteLine("[P2P Bridge] Mapeando RTSP (porta 554) para 127.0.0.1:$localPort...")
-    $bound = $adapter.AddSDKPort(10, $serial, [UInt16]554, [UInt16]$localPort)
-    [Console]::WriteLine("[P2P Bridge] Porta local mapeada: $bound")
-    return [int]$bound
-}
-
-$boundPort = Start-Tunnel
+[Console]::WriteLine("[P2P Bridge] Mapeando RTSP (porta 554) para 127.0.0.1:$localPort...")
+$bound = $adapter.AddSDKPort(10, $serial, [UInt16]554, [UInt16]$localPort)
+[Console]::WriteLine("[P2P Bridge] Porta local mapeada: $bound")
 
 try {
     while ($true) {
-        Start-Sleep -Seconds 15
-        $alive = $adapter.TestPortConnection([UInt16]$boundPort)
-        if (-not $alive) {
-            [Console]::WriteLine("[P2P Bridge] Conexao P2P instavel, reconectando tunel...")
-            $adapter.Cleanup()
-            $adapter = [Activator]::CreateInstance($type, @($null, $null))
-            $boundPort = Start-Tunnel
-        }
+        Start-Sleep -Seconds 3600
     }
 } finally {
     [Console]::WriteLine("[P2P Bridge] Encerrando tunel...")
