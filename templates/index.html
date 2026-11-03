@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0d14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Porteiro Vision | Central de Vigilância</title>
+  
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+</head>
+<body>
+
+  <!-- HEADER DE CONTROLE DO PORTEIRO -->
+  <header class="top-bar">
+    <div class="brand-section">
+      <div class="brand-logo">🛡️</div>
+      <div>
+        <span class="brand-title">PORTEIRO VISION</span>
+        <span class="brand-badge">PRO</span>
+      </div>
+    </div>
+
+    <!-- SELETOR DE LAYOUTS E AÇÕES -->
+    <div class="header-actions">
+      <!-- Layouts de visualização -->
+      <div class="layout-picker" title="Escolher visualização das telas">
+        <button class="layout-btn active" data-layout="auto">Auto</button>
+        <button class="layout-btn" data-layout="1x1">1x1</button>
+        <button class="layout-btn" data-layout="2x2">2x2</button>
+        <button class="layout-btn" data-layout="3x3">3x3</button>
+        <button class="layout-btn" data-layout="hero" title="Modo Porteiro: Câmera Principal + Miniaturas">Hero</button>
+      </div>
+
+      <!-- IP do Servidor para Tablet -->
+      <div class="server-ip-pill" title="Acesse no seu celular ou tablet por este endereço na mesma rede">
+        Tablet IP: <strong>http://{{ server_ip }}:8080</strong>
+      </div>
+
+      <!-- Botão Tela Cheia -->
+      <button class="action-icon-btn" onclick="toggleFullscreen()" title="Tela Cheia">⛶</button>
+
+      <!-- Botão Adicionar Câmera -->
+      <button class="btn-primary" onclick="openAddCameraModal()">
+        <span>+</span> Adicionar Câmera
+      </button>
+    </div>
+  </header>
+
+  <!-- ÁREA DE GRADE DE VÍDEO DAS CÂMERAS -->
+  <main class="viewport-container">
+    <div id="cameraGrid" class="camera-grid layout-auto">
+      <!-- Câmeras injetadas dinamicamente via app.js -->
+    </div>
+  </main>
+
+  <!-- MODAL DE CADASTRO / EDIÇÃO DE CÂMERA -->
+  <div class="modal-backdrop" id="cameraModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Cadastrar Câmera</h3>
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <form id="cameraForm" onsubmit="event.preventDefault();">
+          
+          <div class="form-group">
+            <label>Apelido da Câmera</label>
+            <input type="text" id="camName" class="form-control" placeholder="Ex: Portão Social, Garagem, Entrada" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Marca / Fabricante</label>
+              <select id="camBrand" class="form-control">
+                <option value="icsee">iCSee / Xiongmai (H264DVR)</option>
+                <option value="intelbras">Intelbras / Dahua</option>
+                <option value="tapo">TP-Link Tapo</option>
+                <option value="hikvision">Hikvision / Ezviz</option>
+                <option value="generic">Outro / RTSP Genérico</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Qualidade de Fluxo</label>
+              <select id="camStreamType" class="form-control">
+                <option value="sub" selected>Sub-stream (Mais leve e fluido)</option>
+                <option value="main">Main (Alta Definição / HD)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Endereço IP ou Host</label>
+              <input type="text" id="camHost" class="form-control" placeholder="Ex: 192.168.4.41" required>
+            </div>
+            
+            <div class="form-group">
+              <label>Porta RTSP</label>
+              <input type="number" id="camPort" class="form-control" value="554">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Usuário</label>
+              <input type="text" id="camUser" class="form-control" value="admin">
+            </div>
+            
+            <div class="form-group">
+              <label>Senha da Câmera</label>
+              <input type="password" id="camPassword" class="form-control" placeholder="Senha configurada no app">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; color: #fff;">
+              <input type="checkbox" id="camPtzEnabled"> 
+              Habilitar Controle de Movimento Motorizado (PTZ)
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>URL RTSP Personalizada (Opcional)</label>
+            <input type="text" id="camCustomUrl" class="form-control" placeholder="Deixe em branco para auto-gerar pela marca">
+          </div>
+
+          <!-- Alerta de resultado do teste -->
+          <div id="testResult" class="test-alert"></div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="deleteCameraBtn" style="color: var(--accent-danger); margin-right: auto; display: none;">
+          Excluir
+        </button>
+        <button type="button" class="btn-secondary" id="testConnectionBtn">
+          🔍 Testar Conexão
+        </button>
+        <button type="button" class="btn-secondary" id="cancelModalBtn">
+          Cancelar
+        </button>
+        <button type="button" class="btn-primary" id="saveCameraBtn">
+          Salvar Câmera
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
