@@ -14,7 +14,11 @@ from camera_manager import manager
 from dvrip_client import DVRIPClient
 
 # Carrega .env se existir
-env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+
+env_file = os.path.join(BASE_DIR, ".env")
 if os.path.exists(env_file):
     with open(env_file, "r", encoding="utf-8") as f:
         for line in f:
@@ -22,10 +26,18 @@ if os.path.exists(env_file):
                 k, v = line.strip().split("=", 1)
                 os.environ[k.strip()] = v.strip().strip('"').strip("'")
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(
+    __name__,
+    static_folder=STATIC_DIR,
+    template_folder=TEMPLATE_DIR
+)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    return send_from_directory(STATIC_DIR, filename)
 
 # Inicia workers de todas as câmeras salvas
 manager.start_all()

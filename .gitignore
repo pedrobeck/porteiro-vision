@@ -7,3 +7,4 @@ data/cameras.json
 .env
 gen_env.py
 run_migration.py
+.vercel
