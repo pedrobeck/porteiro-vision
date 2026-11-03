@@ -46,10 +46,13 @@ SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 def serve_static(filename):
     return send_from_directory(STATIC_DIR, filename)
 
-# Inicia workers de todas as câmeras salvas
-manager.start_all()
+# Inicia workers de todas as câmeras salvas apenas em ambiente local com OpenCV
+if HAS_CV2 and not os.environ.get("VERCEL"):
+    manager.start_all()
 
 def get_local_ip():
+    if os.environ.get("VERCEL"):
+        return "127.0.0.1"
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))

@@ -4,15 +4,23 @@ import uuid
 import threading
 from datetime import datetime
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+IS_VERCEL = bool(os.environ.get("VERCEL"))
+if IS_VERCEL:
+    DATA_DIR = "/tmp/data"
+else:
+    DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
 CAMERAS_FILE = os.path.join(DATA_DIR, "cameras.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 _lock = threading.Lock()
 
 def _ensure_dir():
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR, exist_ok=True)
+    try:
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR, exist_ok=True)
+    except Exception:
+        pass
 
 def load_cameras():
     _ensure_dir()
