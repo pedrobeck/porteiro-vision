@@ -102,67 +102,82 @@ class CameraWorker:
             ffmpeg_bin,
             "-y",
             "-rtsp_transport", "tcp",
-            "-stimeout", "5000000",
-            "-analyzeduration", "2000000",
-            "-probesize", "2000000",
+            "-stimeout", "15000000",
+            "-fflags", "nobuffer",
             "-i", url,
+            "-vsync", "0",
             "-f", "image2pipe",
             "-vcodec", "mjpeg",
-            "-q:v", "4",
-            "-r", "12",
+            "-q:v", "5",
             "-"
         ]
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**6)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=2*1024*1024)
         except Exception as e:
-            print(f"[Worker {self.cam_id}] Erro ao iniciar ffmpeg: {e}")
+            print(f"[Worker {self.cam_id}] Erro ao iniciar ffmpeg: {e}", flush=True)
             self.status = "OFFLINE"
             time.sleep(retry_delay)
             return
 
         self.status = "ONLINE"
         self.proc = proc
+        self.last_seen = datetime.now()
         fps_timer = time.time()
         frames_in_sec = 0
         buffer = b""
 
+        # Watchdog para reiniciar processo caso o fluxo pare por mais de 15s
+        def watchdog():
+            while self.running and proc.poll() is None:
+                time.sleep(2.0)
+                if self.last_seen and (datetime.now() - self.last_seen).total_seconds() > 15.0:
+                    print(f"[Worker {self.cam_id}] Watchdog: fluxo sem quadros há mais de 15s, reiniciando conexão...", flush=True)
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        pass
+                    break
+
+        threading.Thread(target=watchdog, daemon=True).start()
+
+        # Drena o pipe continuamente sem sleeps artificiais para evitar acúmulo no buffer do SO
         while self.running and proc.poll() is None:
-            chunk = proc.stdout.read(4096)
+            chunk = proc.stdout.read(32768)
             if not chunk:
                 break
             buffer += chunk
 
-            a = buffer.find(b"\xff\xd8")
-            if a == -1:
-                buffer = b""
-                continue
-            if a > 0:
-                buffer = buffer[a:]
-
-            b = buffer.find(b"\xff\xd9", 2)
-            if b == -1:
-                if len(buffer) > 2000000:
+            # Processa todos os quadros JPEG completos já recebidos
+            while True:
+                a = buffer.find(b"\xff\xd8")
+                if a == -1:
                     buffer = b""
-                continue
+                    break
+                if a > 0:
+                    buffer = buffer[a:]
 
-            jpg = buffer[:b+2]
-            buffer = buffer[b+2:]
+                b = buffer.find(b"\xff\xd9", 2)
+                if b == -1:
+                    if len(buffer) > 2000000:
+                        buffer = b""
+                    break
 
-            if len(jpg) > 1000:
-                self.last_seen = datetime.now()
-                self.frame_count += 1
-                frames_in_sec += 1
+                jpg = buffer[:b+2]
+                buffer = buffer[b+2:]
 
-                now = time.time()
-                if now - fps_timer >= 1.0:
-                    self.fps = round(frames_in_sec / (now - fps_timer), 1)
-                    frames_in_sec = 0
-                    fps_timer = now
+                if len(jpg) > 1000:
+                    self.last_seen = datetime.now()
+                    self.frame_count += 1
+                    frames_in_sec += 1
 
-                with self.lock:
-                    self.latest_jpeg = jpg
+                    now = time.time()
+                    if now - fps_timer >= 1.0:
+                        self.fps = round(frames_in_sec / (now - fps_timer), 1)
+                        frames_in_sec = 0
+                        fps_timer = now
 
-                time.sleep(0.015)
+                    with self.lock:
+                        self.latest_jpeg = jpg
 
         try:
             proc.terminate()
@@ -170,9 +185,12 @@ class CameraWorker:
             pass
         self.proc = None
 
-        self.status = "OFFLINE"
-        with self.lock:
-            self.latest_jpeg = self._generate_placeholder("SINAL PERDIDO", "Tentando reconectar...")
+        # Só exibe "SINAL PERDIDO" e marca OFFLINE se estiver há mais de 10 segundos sem sinal,
+        # evitando piscar na tela do usuário durante breves reconexões de rede
+        if not self.last_seen or (datetime.now() - self.last_seen).total_seconds() > 10.0:
+            self.status = "OFFLINE"
+            with self.lock:
+                self.latest_jpeg = self._generate_placeholder("SINAL PERDIDO", "Tentando reconectar...")
         time.sleep(retry_delay)
 
     def _run(self):
