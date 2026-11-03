@@ -5,6 +5,7 @@ let currentLayout = "auto";
 let focusedCameraId = null;
 let pollInterval = null;
 let currentAuthMode = "login"; // 'login' ou 'register'
+let isHubOnline = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   initLayoutControls();
@@ -29,7 +30,7 @@ function registerPWA() {
   }
 }
 
-// --- STREAM HUB URL & CLOUDFLARE TUNNEL ---
+// --- STREAM HUB URL & CLOUDFLARE TUNNEL (MODO HÍBRIDO AUTOMÁTICO) ---
 function isLocalEnvironment() {
   const host = window.location.hostname;
   return host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168.") || host.startsWith("10.");
@@ -43,45 +44,84 @@ function getStreamBaseUrl() {
   return hub.replace(/\/+$/, "");
 }
 
-function initHubStatus() {
+async function initHubStatus() {
   const hubPill = document.getElementById("hubStatusPill");
   const localIpPill = document.getElementById("localIpPill");
+  const hubDot = document.getElementById("hubDot");
+  const hubText = document.getElementById("hubStatusText");
 
   if (!hubPill) return;
 
   if (isLocalEnvironment()) {
-    hubPill.style.display = "none";
+    // 1. DENTRO DE CASA: Modo Direto 0ms
+    isHubOnline = true;
+    hubPill.style.display = "inline-flex";
+    if (hubDot) hubDot.className = "hub-dot online";
+    if (hubText) hubText.textContent = "Rede Local (0ms)";
     if (localIpPill) localIpPill.style.display = "flex";
   } else {
+    // 2. FORA DE CASA (VERCEL / 4G): Sincronização 100% Automática
     if (localIpPill) localIpPill.style.display = "none";
     hubPill.style.display = "inline-flex";
-    checkHubConnection();
+    
+    // Busca túnel ativo do Supabase
+    await autoSyncHubFromSupabase();
+
+    // Re-verifica periodicamente para reconectar sozinho quando o PC ligar
+    setInterval(autoSyncHubFromSupabase, 15000);
   }
 }
 
-async function checkHubConnection() {
+async function autoSyncHubFromSupabase() {
+  if (isLocalEnvironment()) return true;
+
   const hubDot = document.getElementById("hubDot");
   const hubText = document.getElementById("hubStatusText");
-  const url = getStreamBaseUrl();
-
-  if (!url) {
-    if (hubDot) hubDot.className = "hub-dot";
-    if (hubText) hubText.textContent = "Conectar Hub";
-    return false;
-  }
 
   try {
-    const res = await fetch(`${url}/api/status`, { mode: "cors" });
-    if (res.ok) {
-      if (hubDot) hubDot.className = "hub-dot online";
-      if (hubText) hubText.textContent = "Hub Online";
-      return true;
-    } else {
-      throw new Error();
+    const sbUrl = window.ENV_SUPABASE_URL || localStorage.getItem("sb_url");
+    const sbKey = window.ENV_SUPABASE_ANON_KEY || localStorage.getItem("sb_anon_key");
+
+    if (!sbUrl || !sbKey) return false;
+
+    const res = await fetch(`${sbUrl}/rest/v1/hub_sync?id=eq.active_hub&select=*`, {
+      headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
+    });
+    const data = await res.json();
+
+    if (data && data.length > 0 && data[0].tunnel_url && data[0].is_online) {
+      const liveTunnel = data[0].tunnel_url.replace(/\/+$/, "");
+      const previousUrl = localStorage.getItem("stream_hub_url");
+      localStorage.setItem("stream_hub_url", liveTunnel);
+
+      // Testa se o túnel responde
+      try {
+        const testRes = await fetch(`${liveTunnel}/api/status`, { mode: "cors" });
+        if (testRes.ok) {
+          const wasOnline = isHubOnline;
+          isHubOnline = true;
+          if (hubDot) hubDot.className = "hub-dot online";
+          if (hubText) hubText.textContent = "Hub Online (Auto)";
+          
+          if (!wasOnline || previousUrl !== liveTunnel) {
+            renderGrid();
+          }
+          return true;
+        }
+      } catch (err) {}
     }
-  } catch (e) {
+
+    // Se não conectou, marca offline
+    const wasOnline = isHubOnline;
+    isHubOnline = false;
     if (hubDot) hubDot.className = "hub-dot offline";
-    if (hubText) hubText.textContent = "Hub Offline";
+    if (hubText) hubText.textContent = "PC Offline (start.bat)";
+    if (wasOnline) renderGrid();
+    return false;
+  } catch (err) {
+    isHubOnline = false;
+    if (hubDot) hubDot.className = "hub-dot offline";
+    if (hubText) hubText.textContent = "PC Offline";
     return false;
   }
 }
@@ -142,7 +182,7 @@ async function saveHubConfig() {
 
   localStorage.setItem("stream_hub_url", url);
   closeHubModal();
-  await checkHubConnection();
+  await autoSyncHubFromSupabase();
   renderGrid();
 }
 
@@ -228,6 +268,7 @@ function startStatusPolling() {
   pollInterval = setInterval(async () => {
     try {
       const baseUrl = getStreamBaseUrl();
+      if (!isLocalEnvironment() && !isHubOnline) return;
       const res = await fetch(`${baseUrl}/api/status`, { mode: "cors" });
       const data = await res.json();
       updateCameraStatuses(data.cameras);
@@ -271,7 +312,7 @@ function renderGrid() {
   }
 
   const baseUrl = getStreamBaseUrl();
-  const needsHubConfig = !isLocalEnvironment() && !baseUrl;
+  const needsHubConfig = !isLocalEnvironment() && (!baseUrl || !isHubOnline);
 
   window.cameras.forEach((cam) => {
     const cell = document.createElement("div");
@@ -283,11 +324,16 @@ function renderGrid() {
     let feedHtml = "";
     if (needsHubConfig) {
       feedHtml = `
-        <div class="feed-wrapper" style="cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(10, 15, 25, 0.85);" onclick="openHubConfigModal()">
-          <div style="text-align: center; padding: 20px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">🌐</div>
-            <div style="font-size: 14px; font-weight: 700; color: #fff;">Conectar Hub Local</div>
-            <div style="font-size: 11px; color: var(--accent-cyan); margin-top: 4px;">Clique para inserir o link do Túnel Cloudflare</div>
+        <div class="feed-wrapper" style="cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(10, 15, 25, 0.9);" onclick="openHubConfigModal()">
+          <div style="text-align: center; padding: 24px;">
+            <div style="font-size: 36px; margin-bottom: 8px;">📡</div>
+            <div style="font-size: 15px; font-weight: 700; color: #fff;">Computador de Casa Offline</div>
+            <div style="font-size: 12px; color: var(--accent-cyan); margin-top: 6px; line-height: 1.4;">
+              Inicie o <code>start.bat</code> no seu PC para transmitir automaticamente.
+            </div>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 10px;">
+              Clique para checar conexão ou configurar manualmente
+            </div>
           </div>
         </div>
       `;
@@ -491,7 +537,7 @@ async function testConnection() {
   const baseUrl = getStreamBaseUrl();
   if (!isLocalEnvironment() && !baseUrl) {
     testBox.className = "test-alert error";
-    testBox.textContent = "✕ Para testar câmeras pela Vercel, conecte o Hub Local (Cloudflare Tunnel) no topo da tela.";
+    testBox.textContent = "✕ O computador de casa está offline. Inicie o start.bat no PC para testar.";
     return;
   }
 
