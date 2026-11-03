@@ -17,34 +17,39 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-body {
+html, body {
   background-color: var(--bg-primary);
   color: var(--text-main);
   font-family: var(--font-family);
-  height: 100vh;
+  height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-/* --- HEADER BAR --- */
+/* --- TOP HEADER BAR --- */
 .top-bar {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  padding: 10px 20px;
+  padding: 10px 16px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   z-index: 100;
+  flex-shrink: 0;
 }
 
 .brand-section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brand-logo {
@@ -57,12 +62,12 @@ body {
   justify-content: center;
   font-weight: 900;
   color: #fff;
-  font-size: 18px;
+  font-size: 16px;
   box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: clamp(15px, 2.5vw, 18px);
   font-weight: 700;
   letter-spacing: 0.5px;
   background: linear-gradient(90deg, #ffffff, #a0c0e0);
@@ -71,11 +76,11 @@ body {
 }
 
 .brand-badge {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   background: rgba(0, 210, 255, 0.15);
   color: var(--accent-cyan);
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid rgba(0, 210, 255, 0.3);
 }
@@ -84,7 +89,8 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .layout-picker {
@@ -99,15 +105,16 @@ body {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
+  touch-action: manipulation;
 }
 
 .layout-btn.active, .layout-btn:hover {
-  background: rgba(0, 210, 255, 0.15);
+  background: rgba(0, 210, 255, 0.2);
   color: var(--accent-cyan);
 }
 
@@ -115,7 +122,7 @@ body {
   background: linear-gradient(135deg, #00d2ff, #0070f3);
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 13px;
@@ -125,43 +132,47 @@ body {
   gap: 6px;
   box-shadow: 0 4px 12px rgba(0, 112, 243, 0.3);
   transition: all 0.2s;
+  touch-action: manipulation;
+  min-height: 36px;
 }
 
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 210, 255, 0.4);
+.btn-primary:active {
+  transform: scale(0.97);
 }
 
 .server-ip-pill {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   background: var(--bg-card);
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .server-ip-pill strong {
   color: var(--accent-emerald);
 }
 
-/* USER PROFILE PILL IN HEADER */
+/* USER PROFILE PILL */
 .user-profile-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(0, 230, 118, 0.1);
   border: 1px solid rgba(0, 230, 118, 0.3);
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
 }
 .user-avatar {
-  font-size: 14px;
+  font-size: 13px;
 }
 .user-email {
   color: #fff;
   font-weight: 600;
-  max-width: 150px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -170,10 +181,10 @@ body {
   background: rgba(255, 51, 102, 0.2);
   border: 1px solid rgba(255, 51, 102, 0.4);
   color: var(--accent-danger);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 2px 6px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -182,51 +193,68 @@ body {
   color: #fff;
 }
 
-/* --- MAIN GRID CONTAINER --- */
+/* --- MAIN VIEWPORT CONTAINER --- */
 .viewport-container {
   flex: 1;
   padding: 12px;
-  overflow: hidden;
-  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   background: radial-gradient(circle at center, #111726 0%, #080b11 100%);
+  display: flex;
+  flex-direction: column;
 }
 
+/* Custom Sleek Scrollbar */
+.viewport-container::-webkit-scrollbar {
+  width: 6px;
+}
+.viewport-container::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+.viewport-container::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+.viewport-container::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+/* CAMERA GRID RESPONSIVE STYLES */
 .camera-grid {
   width: 100%;
-  height: 100%;
   display: grid;
   gap: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s ease;
 }
 
-/* Layout Modes */
+/* Layout Auto (Adapta automaticamente à tela) */
+.camera-grid.layout-auto {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+}
+
+/* 1x1 Focus */
 .camera-grid.layout-1x1 {
   grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
+  flex: 1;
 }
 
+/* 2x2 Grid */
 .camera-grid.layout-2x2 {
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
 }
 
+/* 3x3 Grid */
 .camera-grid.layout-3x3 {
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
 }
 
 /* Modo Hero / Porteiro */
 .camera-grid.layout-hero {
-  grid-template-columns: 2.2fr 1fr;
-  grid-template-rows: repeat(auto-fill, 1fr);
+  grid-template-columns: 2fr 1fr;
 }
 .camera-grid.layout-hero .camera-cell:first-child {
-  grid-row: span 3;
-}
-
-/* Auto Grid */
-.camera-grid.layout-auto {
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-row: span 2;
 }
 
 /* --- CAMERA CELL CARD --- */
@@ -238,24 +266,32 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   cursor: pointer;
-  transition: transform 0.2s, border-color 0.2s;
+  transition: transform 0.15s, border-color 0.15s;
+  aspect-ratio: 16 / 10;
+  min-height: 220px;
 }
 
 .camera-cell:hover {
-  border-color: rgba(0, 210, 255, 0.5);
+  border-color: rgba(0, 210, 255, 0.4);
 }
 
+/* FOCUSED MODE (TELA CHEIA INTELIGENTE) */
 .camera-cell.focused {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  z-index: 50;
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 35px rgba(0, 210, 255, 0.3);
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  z-index: 9999 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: #000 !important;
+  aspect-ratio: auto !important;
 }
 
 /* FEED SCREEN */
@@ -267,6 +303,7 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  aspect-ratio: 16 / 9;
 }
 
 .feed-img {
@@ -274,6 +311,7 @@ body {
   height: 100%;
   object-fit: contain;
   background: #000;
+  pointer-events: none;
 }
 
 /* CELL OVERLAY HUD */
@@ -282,8 +320,8 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  padding: 10px 14px;
-  background: linear-gradient(180deg, rgba(10, 13, 20, 0.85) 0%, transparent 100%);
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(8, 11, 16, 0.9) 0%, transparent 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -297,69 +335,70 @@ body {
 }
 
 .status-indicator {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--accent-emerald);
-  box-shadow: 0 0 8px var(--accent-emerald);
+  box-shadow: 0 0 6px var(--accent-emerald);
+  flex-shrink: 0;
 }
 .status-indicator.connecting {
   background: var(--accent-warn);
-  box-shadow: 0 0 8px var(--accent-warn);
+  box-shadow: 0 0 6px var(--accent-warn);
   animation: pulse 1.5s infinite;
 }
 .status-indicator.offline {
   background: var(--accent-danger);
-  box-shadow: 0 0 8px var(--accent-danger);
+  box-shadow: 0 0 6px var(--accent-danger);
 }
 
 @keyframes pulse {
-  0% { opacity: 0.4; }
+  0% { opacity: 0.3; }
   50% { opacity: 1; }
-  100% { opacity: 0.4; }
+  100% { opacity: 0.3; }
 }
 
 .camera-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 }
 
 .camera-meta {
-  font-size: 11px;
-  color: #a0b0c8;
+  font-size: 10px;
+  color: #9cb0c8;
 }
 
 .cell-actions {
   display: flex;
   gap: 6px;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-}
-.camera-cell:hover .cell-actions {
-  opacity: 1;
 }
 
 .action-icon-btn {
-  background: rgba(18, 23, 34, 0.7);
+  background: rgba(18, 23, 34, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   backdrop-filter: blur(4px);
-  transition: all 0.2s;
+  transition: all 0.15s;
+  touch-action: manipulation;
 }
-.action-icon-btn:hover {
+.action-icon-btn:active {
   background: var(--accent-cyan);
   color: #000;
-  border-color: var(--accent-cyan);
+  transform: scale(0.92);
 }
 
 /* PTZ FLOATING JOYSTICK OVERLAY */
@@ -367,23 +406,23 @@ body {
   position: absolute;
   bottom: 20px;
   right: 20px;
-  background: rgba(18, 23, 34, 0.85);
+  background: rgba(18, 23, 34, 0.9);
   border: 1px solid var(--border-color);
-  backdrop-filter: blur(10px);
-  padding: 12px;
+  backdrop-filter: blur(12px);
+  padding: 10px;
   border-radius: 50%;
-  width: 140px;
-  height: 140px;
+  width: 130px;
+  height: 130px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 4px;
   z-index: 20;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
 }
 
 .ptz-btn {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
   border-radius: 8px;
@@ -392,45 +431,55 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  touch-action: manipulation;
 }
-.ptz-btn:active, .ptz-btn:hover {
+.ptz-btn:active {
   background: var(--accent-cyan);
   color: #000;
 }
 
 /* EMPTY STATE */
 .empty-state {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  gap: 16px;
+  gap: 14px;
   text-align: center;
+  padding: 24px;
 }
 .empty-icon {
-  font-size: 54px;
-  color: rgba(0, 210, 255, 0.3);
+  font-size: 48px;
+  color: rgba(0, 210, 255, 0.4);
+}
+.empty-state h2 {
+  font-size: clamp(18px, 4vw, 22px);
+  color: #fff;
+}
+.empty-state p {
+  font-size: clamp(13px, 2.5vw, 15px);
+  max-width: 440px;
 }
 
-/* --- MODAL DIALOGS --- */
+/* --- MODAL DIALOGS RESPONSIVE --- */
 .modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background: rgba(4, 7, 12, 0.85);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s;
+  transition: opacity 0.2s;
+  padding: 16px;
 }
 .modal-backdrop.open {
   opacity: 1;
@@ -441,74 +490,43 @@ body {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  width: 90%;
-  max-width: 520px;
-  max-height: 90vh;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90dvh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
 }
 
 .modal-header {
-  padding: 18px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 .modal-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
 }
 .modal-close {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
+  padding: 4px;
+  line-height: 1;
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-/* AUTH TABS & ELEMENTS */
-.auth-tabs {
-  display: flex;
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 4px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border-color);
-}
-.auth-tab {
-  flex: 1;
-  padding: 8px;
-  text-align: center;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 13px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.auth-tab.active {
-  background: rgba(0, 210, 255, 0.2);
-  color: var(--accent-cyan);
-}
-
-.auth-config-toggle {
-  font-size: 11px;
-  color: var(--text-muted);
-  cursor: pointer;
-  text-decoration: underline;
-  margin-top: 8px;
+  gap: 14px;
+  overflow-y: auto;
 }
 
 .form-group {
@@ -517,8 +535,8 @@ body {
   gap: 6px;
 }
 .form-group label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -528,10 +546,11 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: #fff;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border-radius: 8px;
   font-size: 14px;
   outline: none;
+  min-height: 42px;
   transition: border-color 0.2s;
 }
 .form-control:focus {
@@ -545,7 +564,7 @@ body {
 }
 
 .test-alert {
-  padding: 10px 14px;
+  padding: 10px 12px;
   border-radius: 8px;
   font-size: 13px;
   display: none;
@@ -564,38 +583,94 @@ body {
 }
 
 .modal-footer {
-  padding: 16px 24px;
+  padding: 14px 20px;
   border-top: 1px solid var(--border-color);
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .btn-secondary {
   background: var(--bg-card);
   color: var(--text-main);
   border: 1px solid var(--border-color);
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 13px;
+  min-height: 38px;
 }
 
-/* RESPONSIVE DESIGN FOR TABLETS & MOBILES */
+/* ========================================================
+   MEDIA QUERIES: SMARTPHONE & TABLET ULTRA-RESPONSIVE
+   ======================================================== */
+
+/* TABLETS (Telas entre 641px e 1024px) */
+@media (max-width: 1024px) {
+  .camera-grid.layout-auto {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .camera-grid.layout-3x3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* SMARTPHONES & TABLETS PEQUENOS (Abaixo de 768px) */
 @media (max-width: 768px) {
   .top-bar {
     padding: 8px 12px;
   }
-  .brand-title {
-    font-size: 16px;
+  
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 6px;
   }
+
   .server-ip-pill {
     display: none;
   }
-  .camera-grid.layout-2x2, .camera-grid.layout-3x3, .camera-grid.layout-hero {
+
+  /* Em telas mobile, força 1 coluna para não espremer os vídeos */
+  .camera-grid.layout-auto,
+  .camera-grid.layout-2x2,
+  .camera-grid.layout-3x3,
+  .camera-grid.layout-hero {
     grid-template-columns: 1fr !important;
-    grid-template-rows: auto !important;
+  }
+
+  .camera-grid.layout-hero .camera-cell:first-child {
+    grid-row: span 1 !important;
+  }
+
+  .camera-cell {
+    min-height: 200px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .modal-card {
+    border-radius: 12px;
+  }
+}
+
+/* SMARTPHONES EM MODO PAISAGEM (LANDSCAPE) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .top-bar {
+    padding: 4px 12px;
+  }
+  .camera-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
   .camera-cell {
-    min-height: 240px;
+    min-height: 160px;
+  }
+  .modal-card {
+    max-height: 94dvh;
   }
 }
