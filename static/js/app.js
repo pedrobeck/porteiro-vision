@@ -9,11 +9,11 @@ let currentAuthMode = "login"; // 'login' ou 'register'
 document.addEventListener("DOMContentLoaded", () => {
   initLayoutControls();
   initModal();
+  initHubStatus();
   
   // Inicializa o Supabase (usa chaves salvas ou variáveis padrão)
   const isSbReady = initSupabase();
   if (!isSbReady) {
-    // Se não tiver chave configurada, permite usar localmente mas exibe modal
     console.log("[Supabase] Aguardando configuração de credenciais no modal.");
   }
 
@@ -27,6 +27,123 @@ function registerPWA() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
+}
+
+// --- STREAM HUB URL & CLOUDFLARE TUNNEL ---
+function isLocalEnvironment() {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168.") || host.startsWith("10.");
+}
+
+function getStreamBaseUrl() {
+  if (isLocalEnvironment()) {
+    return "";
+  }
+  const hub = localStorage.getItem("stream_hub_url") || "";
+  return hub.replace(/\/+$/, "");
+}
+
+function initHubStatus() {
+  const hubPill = document.getElementById("hubStatusPill");
+  const localIpPill = document.getElementById("localIpPill");
+
+  if (!hubPill) return;
+
+  if (isLocalEnvironment()) {
+    hubPill.style.display = "none";
+    if (localIpPill) localIpPill.style.display = "flex";
+  } else {
+    if (localIpPill) localIpPill.style.display = "none";
+    hubPill.style.display = "inline-flex";
+    checkHubConnection();
+  }
+}
+
+async function checkHubConnection() {
+  const hubDot = document.getElementById("hubDot");
+  const hubText = document.getElementById("hubStatusText");
+  const url = getStreamBaseUrl();
+
+  if (!url) {
+    if (hubDot) hubDot.className = "hub-dot";
+    if (hubText) hubText.textContent = "Conectar Hub";
+    return false;
+  }
+
+  try {
+    const res = await fetch(`${url}/api/status`, { mode: "cors" });
+    if (res.ok) {
+      if (hubDot) hubDot.className = "hub-dot online";
+      if (hubText) hubText.textContent = "Hub Online";
+      return true;
+    } else {
+      throw new Error();
+    }
+  } catch (e) {
+    if (hubDot) hubDot.className = "hub-dot offline";
+    if (hubText) hubText.textContent = "Hub Offline";
+    return false;
+  }
+}
+
+function openHubConfigModal() {
+  const input = document.getElementById("hubTunnelUrl");
+  if (input) input.value = localStorage.getItem("stream_hub_url") || "";
+  const alertBox = document.getElementById("hubTestAlert");
+  if (alertBox) alertBox.style.display = "none";
+  const modal = document.getElementById("hubModal");
+  if (modal) modal.classList.add("open");
+}
+
+function closeHubModal() {
+  const modal = document.getElementById("hubModal");
+  if (modal) modal.classList.remove("open");
+}
+
+async function testHubConnection() {
+  const input = document.getElementById("hubTunnelUrl");
+  const url = input ? input.value.trim().replace(/\/+$/, "") : "";
+  const alertBox = document.getElementById("hubTestAlert");
+
+  if (!url) {
+    alertBox.className = "test-alert error";
+    alertBox.textContent = "✕ Informe a URL do túnel (ex: https://xxx.trycloudflare.com)";
+    alertBox.style.display = "block";
+    return;
+  }
+
+  alertBox.className = "test-alert";
+  alertBox.textContent = "Testando conexão com o seu Hub Local...";
+  alertBox.style.display = "block";
+
+  try {
+    const res = await fetch(`${url}/api/status`, { mode: "cors" });
+    if (res.ok) {
+      const data = await res.json();
+      alertBox.className = "test-alert success";
+      const camCount = data.cameras ? data.cameras.length : 0;
+      alertBox.textContent = `✓ Hub conectado com sucesso! (${camCount} câmera(s) ativa(s))`;
+    } else {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  } catch (err) {
+    alertBox.className = "test-alert error";
+    alertBox.textContent = "✕ Falha ao conectar no Hub. Verifique se o start.bat está rodando no PC.";
+  }
+}
+
+async function saveHubConfig() {
+  const input = document.getElementById("hubTunnelUrl");
+  const url = input ? input.value.trim().replace(/\/+$/, "") : "";
+  if (url && !url.startsWith("http://") && !url.startsWith("https://")) {
+    alert("A URL deve começar com https:// ou http://");
+    return;
+  }
+
+  localStorage.setItem("stream_hub_url", url);
+  closeHubModal();
+  await checkHubConnection();
+  renderGrid();
 }
 
 // --- AUTH CONTROLS (SUPABASE) ---
@@ -110,7 +227,8 @@ async function loadCameras() {
 function startStatusPolling() {
   pollInterval = setInterval(async () => {
     try {
-      const res = await fetch("/api/status");
+      const baseUrl = getStreamBaseUrl();
+      const res = await fetch(`${baseUrl}/api/status`, { mode: "cors" });
       const data = await res.json();
       updateCameraStatuses(data.cameras);
     } catch (err) {}
@@ -152,12 +270,34 @@ function renderGrid() {
     return;
   }
 
+  const baseUrl = getStreamBaseUrl();
+  const needsHubConfig = !isLocalEnvironment() && !baseUrl;
+
   window.cameras.forEach((cam) => {
     const cell = document.createElement("div");
     cell.className = "camera-cell";
     cell.dataset.id = cam.id;
 
-    const streamUrl = `/api/stream/${cam.id}`;
+    const streamUrl = `${baseUrl}/api/stream/${cam.id}`;
+
+    let feedHtml = "";
+    if (needsHubConfig) {
+      feedHtml = `
+        <div class="feed-wrapper" style="cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(10, 15, 25, 0.85);" onclick="openHubConfigModal()">
+          <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🌐</div>
+            <div style="font-size: 14px; font-weight: 700; color: #fff;">Conectar Hub Local</div>
+            <div style="font-size: 11px; color: var(--accent-cyan); margin-top: 4px;">Clique para inserir o link do Túnel Cloudflare</div>
+          </div>
+        </div>
+      `;
+    } else {
+      feedHtml = `
+        <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
+          <img class="feed-img" src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
+        </div>
+      `;
+    }
 
     cell.innerHTML = `
       <div class="cell-header">
@@ -174,14 +314,12 @@ function renderGrid() {
           <button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>
         </div>
       </div>
-      <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
-        <img class="feed-img" src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
-      </div>
+      ${feedHtml}
       ${cam.ptz_enabled ? renderPtzJoystick(cam.id) : ""}
     `;
 
     cell.addEventListener("click", (e) => {
-      if (!e.target.closest("button") && !e.target.closest(".ptz-joystick")) {
+      if (!e.target.closest("button") && !e.target.closest(".ptz-joystick") && !needsHubConfig) {
         toggleFocusCamera(cam.id);
       }
     });
@@ -249,8 +387,9 @@ function toggleFullscreen(event) {
 // --- SNAPSHOT & PTZ ---
 function takeSnapshot(camId, event) {
   if (event) event.stopPropagation();
+  const baseUrl = getStreamBaseUrl();
   const link = document.createElement("a");
-  link.href = `/api/snapshot/${camId}?t=${Date.now()}`;
+  link.href = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
   link.download = `porteiro_cam_${camId}_${Date.now()}.jpg`;
   document.body.appendChild(link);
   link.click();
@@ -258,8 +397,9 @@ function takeSnapshot(camId, event) {
 }
 
 async function sendPtz(camId, cmd) {
+  const baseUrl = getStreamBaseUrl();
   try {
-    await fetch(`/api/cameras/${camId}/ptz`, {
+    await fetch(`${baseUrl}/api/cameras/${camId}/ptz`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command: cmd, step: 4 })
@@ -348,9 +488,16 @@ async function testConnection() {
   testBox.textContent = "Testando conexão com a câmera...";
   testBox.style.display = "block";
 
+  const baseUrl = getStreamBaseUrl();
+  if (!isLocalEnvironment() && !baseUrl) {
+    testBox.className = "test-alert error";
+    testBox.textContent = "✕ Para testar câmeras pela Vercel, conecte o Hub Local (Cloudflare Tunnel) no topo da tela.";
+    return;
+  }
+
   const data = getFormData();
   try {
-    const res = await fetch("/api/cameras/test", {
+    const res = await fetch(`${baseUrl}/api/cameras/test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)

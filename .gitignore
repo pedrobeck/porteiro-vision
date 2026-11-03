@@ -8,3 +8,5 @@ data/cameras.json
 gen_env.py
 run_migration.py
 .vercel
+cloudflared.exe
+*.log

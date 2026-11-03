@@ -1,10 +1,6 @@
 @echo off
-title Porteiro Vision - Central de Cameras
+title Porteiro Vision - Central de Cameras & Streaming Hub
 color 0B
-echo ========================================================
-echo        PORTEIRO VISION - CENTRAL DE CAMERAS
-echo ========================================================
-echo.
-echo Iniciando o mini-servidor local...
-python app.py
+cd /d "%~dp0"
+python run_hub.py
 pause

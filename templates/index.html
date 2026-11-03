@@ -39,8 +39,14 @@
       </div>
 
       <!-- IP do Servidor para Tablet -->
-      <div class="server-ip-pill" title="Acesse no seu celular ou tablet por este endereço na mesma rede">
+      <div class="server-ip-pill" id="localIpPill" title="Acesse no seu celular ou tablet por este endereço na mesma rede">
         Tablet IP: <strong>http://{{ server_ip }}:8080</strong>
+      </div>
+
+      <!-- Hub de Streaming (Cloudflare Tunnel para acesso externo / Vercel) -->
+      <div id="hubStatusPill" class="hub-status-pill" onclick="openHubConfigModal()" title="Configurar conexão com o Hub Local de Vídeo" style="display: none;">
+        <span class="hub-dot" id="hubDot"></span>
+        <span id="hubStatusText">Hub: Desconectado</span>
       </div>
 
       <!-- Usuário Supabase Autenticado -->
@@ -215,6 +221,41 @@
         <button type="button" class="btn-primary" id="saveCameraBtn">
           Salvar Câmera
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURAÇÃO DO HUB CLOUDFLARE -->
+  <div class="modal-backdrop" id="hubModal">
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">🌐</span>
+          <h3 class="modal-title">Hub Local de Streaming</h3>
+        </div>
+        <button class="modal-close" onclick="closeHubModal()">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+          Para assistir às câmeras pela Vercel com baixa latência, cole abaixo a URL gerada pelo <strong>Cloudflare Tunnel</strong> (ela já é copiada automaticamente ao iniciar o <code>start.bat</code> no seu computador):
+        </p>
+
+        <div class="form-group">
+          <label>URL do Túnel Cloudflare (HTTPS)</label>
+          <input type="url" id="hubTunnelUrl" class="form-control" placeholder="https://exemplo.trycloudflare.com">
+        </div>
+
+        <div id="hubTestAlert" class="test-alert" style="display: none; margin-top: 12px;"></div>
+
+        <div style="display: flex; gap: 8px; margin-top: 18px;">
+          <button type="button" class="btn-secondary" onclick="testHubConnection()" style="flex: 1;">
+            🔍 Testar Conexão
+          </button>
+          <button type="button" class="btn-primary" onclick="saveHubConfig()" style="flex: 1;">
+            💾 Conectar Hub
+          </button>
+        </div>
       </div>
     </div>
   </div>

@@ -155,6 +155,41 @@ html, body {
   color: var(--accent-emerald);
 }
 
+.hub-status-pill {
+  font-size: 11px;
+  background: var(--bg-card);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-light);
+  user-select: none;
+}
+.hub-status-pill:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 210, 255, 0.08);
+}
+.hub-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffaa00;
+  box-shadow: 0 0 6px rgba(255, 170, 0, 0.6);
+  flex-shrink: 0;
+}
+.hub-dot.online {
+  background: #00ff88;
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
+}
+.hub-dot.offline {
+  background: #ff4444;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.7);
+}
+
 /* USER PROFILE PILL */
 .user-profile-pill {
   display: flex;
