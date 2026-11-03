@@ -7,6 +7,7 @@ data/cameras.json
 .env
 gen_env.py
 run_migration.py
+add_condo_cameras.py
 .vercel
 cloudflared.exe
 *.log

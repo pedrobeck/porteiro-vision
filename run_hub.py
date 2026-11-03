@@ -89,13 +89,13 @@ def sync_cameras_from_supabase():
             cloud_cams = res.json()
             if cloud_cams:
                 local_cams = load_cameras()
-                cam_map = {c["host"]: c for c in local_cams}
+                cam_map = {c["id"]: c for c in local_cams}
                 # Atualiza com IDs da nuvem
                 merged = []
                 for cc in cloud_cams:
                     cid = cc["id"]
-                    host = cc["host"]
-                    existing = cam_map.get(host, {})
+                    existing = cam_map.get(cid, {})
+                    host = cc.get("host", existing.get("host", "127.0.0.1"))
                     merged.append({
                         "id": cid,
                         "name": cc.get("name", existing.get("name", "Camera")),
@@ -105,7 +105,7 @@ def sync_cameras_from_supabase():
                         "protocol": "rtsp",
                         "username": cc.get("username", existing.get("username", "admin")),
                         "password": cc.get("password", existing.get("password", "")),
-                        "channel": existing.get("channel", 1),
+                        "channel": existing.get("channel", cc.get("channel", 1)),
                         "stream_type": cc.get("stream_type", existing.get("stream_type", "main")),
                         "custom_url": cc.get("custom_url", existing.get("custom_url", "")),
                         "ptz_enabled": bool(cc.get("ptz_enabled", existing.get("ptz_enabled", False))),
@@ -116,6 +116,34 @@ def sync_cameras_from_supabase():
                 print(f"[HubSync] {len(merged)} câmeras sincronizadas com sucesso do Supabase.")
     except Exception as e:
         print(f"[HubSync] Aviso ao sincronizar cameras da nuvem: {e}")
+
+def start_p2p_bridge():
+    bridge_script = os.path.join(BASE_DIR, "p2p_bridge.ps1")
+    if not os.path.exists(bridge_script):
+        print(f"[P2P Bridge] Script {bridge_script} nao encontrado.")
+        return None
+    try:
+        proc = subprocess.Popen(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-File", bridge_script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        print("[P2P Bridge] Inicializando ponte P2P para as câmeras do condomínio...")
+        start = time.time()
+        while time.time() - start < 10:
+            line = proc.stdout.readline()
+            if not line:
+                time.sleep(0.1)
+                continue
+            if "Porta local mapeada" in line:
+                print(f"[P2P Bridge] {line.strip()}")
+                break
+        return proc
+    except Exception as e:
+        print(f"[P2P Bridge] Erro ao iniciar ponte P2P: {e}")
+        return None
 
 def start_tunnel():
     if not os.path.exists(CLOUDFLARED_BIN):
@@ -157,17 +185,20 @@ def main():
     # Sincroniza câmeras do Supabase
     sync_cameras_from_supabase()
 
-    print("[1/3] Estabelecendo tunel Cloudflare para acesso externo...")
+    print("[1/4] Inicializando túnel P2P para as câmeras do condomínio...")
+    bridge_proc = start_p2p_bridge()
+
+    print("[2/4] Estabelecendo tunel Cloudflare para acesso externo...")
     tunnel_proc, tunnel_url = start_tunnel()
     
     if tunnel_url:
         copy_to_clipboard(tunnel_url)
-        print("[2/3] Tunel ativo! Sincronizando com a Vercel via Supabase...")
+        print("[3/4] Tunel ativo! Sincronizando com a Vercel via Supabase...")
         sync_hub_to_supabase(tunnel_url, is_online=True)
     else:
-        print("[2/3] Tunel nao iniciado. Central funcionara exclusivamente na rede local.")
+        print("[3/4] Tunel nao iniciado. Central funcionara exclusivamente na rede local.")
         
-    print("[3/3] Servidor de streaming local ativo na porta 8080.")
+    print("[4/4] Servidor de streaming local ativo na porta 8080.")
     print("=" * 70)
     print("DENTRO DE CASA (Zero Latencia):")
     print(f"   Acesso no Computador:            http://localhost:{port}")
@@ -199,6 +230,11 @@ def main():
         if tunnel_proc:
             try:
                 tunnel_proc.terminate()
+            except Exception:
+                pass
+        if bridge_proc:
+            try:
+                bridge_proc.terminate()
             except Exception:
                 pass
 

@@ -11,6 +11,7 @@ except Exception as e:
 import threading
 import time
 import os
+import subprocess
 from datetime import datetime
 from storage import load_cameras, build_rtsp_url
 
@@ -86,6 +87,75 @@ class CameraWorker:
         _, jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 75])
         return jpeg.tobytes()
 
+    def _run_ffmpeg(self, url, retry_delay):
+        ffmpeg_bin = r"C:\Program Files\Intelbras\SIMNext\broadcaster\ffmpeg-simnext.exe"
+        if not os.path.exists(ffmpeg_bin):
+            ffmpeg_bin = "ffmpeg"
+
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-rtsp_transport", "tcp",
+            "-stimeout", "5000000",
+            "-analyzeduration", "2000000",
+            "-probesize", "2000000",
+            "-i", url,
+            "-f", "image2pipe",
+            "-vcodec", "mjpeg",
+            "-q:v", "4",
+            "-r", "12",
+            "-"
+        ]
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**6)
+        except Exception as e:
+            print(f"[Worker {self.cam_id}] Erro ao iniciar ffmpeg: {e}")
+            self.status = "OFFLINE"
+            time.sleep(retry_delay)
+            return
+
+        self.status = "ONLINE"
+        fps_timer = time.time()
+        frames_in_sec = 0
+        buffer = b""
+
+        while self.running and proc.poll() is None:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                break
+            buffer += chunk
+            a = buffer.find(b"\xff\xd8")
+            if a != -1:
+                b = buffer.find(b"\xff\xd9", a + 2)
+                if b != -1:
+                    jpg = buffer[a:b+2]
+                    buffer = buffer[b+2:]
+                    if len(jpg) > 5000:
+                        self.last_seen = datetime.now()
+                        self.frame_count += 1
+                        frames_in_sec += 1
+
+                        now = time.time()
+                        if now - fps_timer >= 1.0:
+                            self.fps = round(frames_in_sec / (now - fps_timer), 1)
+                            frames_in_sec = 0
+                            fps_timer = now
+
+                        with self.lock:
+                            self.latest_jpeg = jpg
+            elif len(buffer) > 100000:
+                buffer = buffer[-4096:]
+
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+
+        self.status = "OFFLINE"
+        with self.lock:
+            self.latest_jpeg = self._generate_placeholder("SINAL PERDIDO", "Tentando reconectar...")
+        time.sleep(retry_delay)
+
     def _run(self):
         retry_delay = 2.0
         while self.running:
@@ -98,6 +168,11 @@ class CameraWorker:
             if "@" in url:
                 pre, post = url.split("@", 1)
                 safe_url = "rtsp://***:***@" + post
+
+            if self.camera.get("brand") == "intelbras":
+                print(f"[Worker {self.cam_id}] Conectando Intelbras HEVC via FFmpeg em {safe_url}...")
+                self._run_ffmpeg(url, retry_delay)
+                continue
 
             print(f"[Worker {self.cam_id}] Conectando em {safe_url}...")
             self.status = "CONNECTING"
