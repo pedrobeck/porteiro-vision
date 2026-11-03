@@ -5,8 +5,19 @@ let currentUser = null;
 
 // Inicializa o cliente do Supabase
 function initSupabase(url, anonKey) {
-  const finalUrl = url || localStorage.getItem("sb_url") || window.ENV_SUPABASE_URL;
-  const finalKey = anonKey || localStorage.getItem("sb_anon_key") || window.ENV_SUPABASE_ANON_KEY;
+  const serverUrl = window.ENV_SUPABASE_URL;
+  const serverKey = window.ENV_SUPABASE_ANON_KEY;
+
+  // Se a URL do servidor mudou em relação ao cache local do navegador, limpa o cache antigo
+  const cachedUrl = localStorage.getItem("sb_url");
+  if (serverUrl && cachedUrl && cachedUrl !== serverUrl) {
+    console.log("[Supabase] Projeto alterado. Limpando cache antigo...");
+    localStorage.removeItem("sb_url");
+    localStorage.removeItem("sb_anon_key");
+  }
+
+  const finalUrl = url || serverUrl || localStorage.getItem("sb_url");
+  const finalKey = anonKey || serverKey || localStorage.getItem("sb_anon_key");
 
   if (finalUrl && finalKey && window.supabase) {
     try {
