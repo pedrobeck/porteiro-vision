@@ -176,16 +176,28 @@ def api_stream_camera(cam_id):
     if not cam:
         return "Câmera não encontrada", 404
     
+    actual_id = cam["id"]
+    worker = manager.get_worker(actual_id)
+    if not worker or not worker.running:
+        manager.start_worker(cam)
+    
     return Response(
-        manager.generate_mjpeg(cam_id),
+        manager.generate_mjpeg(actual_id),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
 
 @app.route("/api/snapshot/<cam_id>")
 def api_snapshot_camera(cam_id):
-    worker = manager.get_worker(cam_id)
-    if not worker:
-        return "Câmera inativa", 404
+    cam = get_camera(cam_id)
+    if not cam:
+        return "Câmera não encontrada", 404
+    
+    actual_id = cam["id"]
+    worker = manager.get_worker(actual_id)
+    if not worker or not worker.running:
+        manager.start_worker(cam)
+        import time
+        time.sleep(0.5)
     
     jpeg_data = worker.get_jpeg()
     return Response(jpeg_data, mimetype="image/jpeg")

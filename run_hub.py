@@ -7,6 +7,13 @@ import subprocess
 import threading
 import webbrowser
 
+# Garante suporte a UTF-8 no terminal
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLOUDFLARED_BIN = os.path.join(BASE_DIR, "cloudflared.exe")
 
@@ -67,6 +74,49 @@ def sync_hub_to_supabase(tunnel_url, is_online=True):
     except Exception as e:
         print(f"[HubSync] Erro ao sincronizar com nuvem: {e}")
 
+def sync_cameras_from_supabase():
+    try:
+        import requests
+        import json
+        from storage import load_cameras, save_cameras
+
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+        }
+        res = requests.get(f"{SUPABASE_URL}/rest/v1/cameras?select=*", headers=headers, timeout=5)
+        if res.status_code == 200:
+            cloud_cams = res.json()
+            if cloud_cams:
+                local_cams = load_cameras()
+                cam_map = {c["host"]: c for c in local_cams}
+                # Atualiza com IDs da nuvem
+                merged = []
+                for cc in cloud_cams:
+                    cid = cc["id"]
+                    host = cc["host"]
+                    existing = cam_map.get(host, {})
+                    merged.append({
+                        "id": cid,
+                        "name": cc.get("name", existing.get("name", "Camera")),
+                        "brand": cc.get("brand", existing.get("brand", "generic")),
+                        "host": host,
+                        "port": cc.get("port", existing.get("port", 554)),
+                        "protocol": "rtsp",
+                        "username": cc.get("username", existing.get("username", "admin")),
+                        "password": cc.get("password", existing.get("password", "")),
+                        "channel": existing.get("channel", 1),
+                        "stream_type": cc.get("stream_type", existing.get("stream_type", "main")),
+                        "custom_url": cc.get("custom_url", existing.get("custom_url", "")),
+                        "ptz_enabled": bool(cc.get("ptz_enabled", existing.get("ptz_enabled", False))),
+                        "order": len(merged),
+                        "created_at": cc.get("created_at", existing.get("created_at", ""))
+                    })
+                save_cameras(merged)
+                print(f"[HubSync] {len(merged)} câmeras sincronizadas com sucesso do Supabase.")
+    except Exception as e:
+        print(f"[HubSync] Aviso ao sincronizar cameras da nuvem: {e}")
+
 def start_tunnel():
     if not os.path.exists(CLOUDFLARED_BIN):
         print(f"[Aviso] cloudflared.exe nao encontrado em {CLOUDFLARED_BIN}")
@@ -83,7 +133,7 @@ def start_tunnel():
     tunnel_url = None
     start = time.time()
     
-    # Lê primeiras linhas para extrair URL
+    # Le primeiras linhas para extrair URL
     while time.time() - start < 15:
         line = proc.stdout.readline()
         if not line:
@@ -101,33 +151,36 @@ def main():
     port = 8080
     
     print("\n" + "=" * 70)
-    print("🛡️  PORTEIRO VISION - CENTRAL HÍBRIDA INTELIGENTE (LOCAL + CLOUD)")
+    print("[PORTEIRO VISION] CENTRAL HIBRIDA INTELIGENTE (LOCAL + CLOUD)")
     print("=" * 70)
-    print("[1/3] Estabelecendo túnel Cloudflare para acesso externo...")
     
+    # Sincroniza câmeras do Supabase
+    sync_cameras_from_supabase()
+
+    print("[1/3] Estabelecendo tunel Cloudflare para acesso externo...")
     tunnel_proc, tunnel_url = start_tunnel()
     
     if tunnel_url:
         copy_to_clipboard(tunnel_url)
-        print("[2/3] Túnel ativo! Sincronizando com a Vercel via Supabase...")
+        print("[2/3] Tunel ativo! Sincronizando com a Vercel via Supabase...")
         sync_hub_to_supabase(tunnel_url, is_online=True)
     else:
-        print("[2/3] Túnel não iniciado. Central funcionará exclusivamente na rede local.")
+        print("[2/3] Tunel nao iniciado. Central funcionara exclusivamente na rede local.")
         
     print("[3/3] Servidor de streaming local ativo na porta 8080.")
     print("=" * 70)
-    print(f"🏠 DENTRO DE CASA (Zero Latência):")
-    print(f"   👉 No seu Computador:            http://localhost:{port}")
-    print(f"   👉 No Tablet ou Celular (Wi-Fi): http://{local_ip}:{port}")
+    print("DENTRO DE CASA (Zero Latencia):")
+    print(f"   Acesso no Computador:            http://localhost:{port}")
+    print(f"   Acesso no Tablet/Celular (Wi-Fi): http://{local_ip}:{port}")
     print("=" * 70)
-    print(f"🌍 FORA DE CASA (Na rua / 4G / 5G):")
-    print(f"   👉 Acesse: https://porteiro-vision.vercel.app")
+    print("FORA DE CASA (Na rua / 4G / 5G):")
+    print("   Acesse: https://porteiro-vision.vercel.app")
     if tunnel_url:
-        print(f"   ⚡ Conexão 100% AUTOMÁTICA! O site já reconhece seu PC ligado.")
-        print(f"   🔒 Link Seguro: {tunnel_url}")
+        print("   Conexao 100% AUTOMATICA! O site reconhece seu PC ligado.")
+        print(f"   Link Seguro: {tunnel_url}")
     print("=" * 70 + "\n")
 
-    # Abre o navegador local automaticamente após 1 segundo
+    # Abre o navegador local automaticamente apos 1.5s
     def _open_browser():
         time.sleep(1.5)
         webbrowser.open(f"http://localhost:{port}")

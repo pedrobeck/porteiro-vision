@@ -84,7 +84,7 @@ def delete_camera(cam_id):
 def get_camera(cam_id):
     cameras = load_cameras()
     for c in cameras:
-        if c["id"] == cam_id:
+        if c.get("id") == cam_id or c.get("host") == cam_id:
             return c
     return None
 
