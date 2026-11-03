@@ -1,10 +1,26 @@
 import os
 import socket
-import cv2
+
+try:
+    import cv2
+    HAS_CV2 = True
+except Exception:
+    cv2 = None
+    HAS_CV2 = False
+
 from flask import Flask, render_template, request, jsonify, Response, send_from_directory
 from storage import load_cameras, save_cameras, add_camera, update_camera, delete_camera, get_camera, build_rtsp_url
 from camera_manager import manager
 from dvrip_client import DVRIPClient
+
+# Carrega .env se existir
+env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(env_file):
+    with open(env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            if "=" in line and not line.startswith("#"):
+                k, v = line.strip().split("=", 1)
+                os.environ[k.strip()] = v.strip().strip('"').strip("'")
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -93,6 +109,9 @@ def api_delete_camera(cam_id):
 
 @app.route("/api/cameras/test", methods=["POST"])
 def api_test_camera():
+    if not HAS_CV2 or cv2 is None:
+        return jsonify({"success": False, "message": "Teste RTSP requer ambiente com OpenCV local."}), 400
+
     data = request.json or {}
     test_cam = {
         "brand": data.get("brand", "generic"),

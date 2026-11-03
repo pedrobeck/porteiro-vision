@@ -1,8 +1,16 @@
-import cv2
+try:
+    import cv2
+    import numpy as np
+    HAS_CV2 = True
+except Exception as e:
+    cv2 = None
+    np = None
+    HAS_CV2 = False
+    print(f"[CameraManager] OpenCV indisponível neste ambiente: {e}")
+
 import threading
 import time
 import os
-import numpy as np
 from datetime import datetime
 from storage import load_cameras, build_rtsp_url
 
@@ -34,6 +42,10 @@ class CameraWorker:
             self.thread.join(timeout=1.0)
 
     def _generate_placeholder(self, status_text, detail_text=""):
+        if not HAS_CV2 or cv2 is None or np is None:
+            # Retorna JPEG mínimo de 1x1 pixel cinza escuro
+            return b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' \",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xbf\x00\xff\xd9'
+
         # Cria imagem 640x360 com visual de tela CCTV de comando
         img = np.zeros((360, 640, 3), dtype=np.uint8)
         # Tom de fundo escuro moderno
@@ -77,6 +89,9 @@ class CameraWorker:
     def _run(self):
         retry_delay = 2.0
         while self.running:
+            if not HAS_CV2:
+                time.sleep(5)
+                continue
             url = build_rtsp_url(self.camera)
             # Remove senha do log por segurança
             safe_url = url
