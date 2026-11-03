@@ -101,9 +101,11 @@ class CameraWorker:
         cmd = [
             ffmpeg_bin,
             "-y",
+            "-use_wallclock_as_timestamps", "1",
             "-rtsp_transport", "tcp",
             "-stimeout", "15000000",
-            "-fflags", "nobuffer",
+            "-flags", "+low_delay",
+            "-fflags", "+nobuffer+discardcorrupt",
             "-i", url,
             "-vsync", "0",
             "-f", "image2pipe",

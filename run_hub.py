@@ -132,15 +132,14 @@ def start_p2p_bridge():
         )
         print("[P2P Bridge] Inicializando ponte P2P para as câmeras do condomínio...")
         start = time.time()
-        mapped_count = 0
-        while time.time() - start < 10 and mapped_count < 4:
+        while time.time() - start < 10:
             line = proc.stdout.readline()
             if not line:
                 time.sleep(0.1)
                 continue
             if "Porta local mapeada" in line:
                 print(f"[P2P Bridge] {line.strip()}")
-                mapped_count += 1
+                break
         return proc
     except Exception as e:
         print(f"[P2P Bridge] Erro ao iniciar ponte P2P: {e}")
