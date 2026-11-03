@@ -210,7 +210,7 @@ async function handleAuthSubmit(e) {
     alertBox.style.display = "block";
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "Entrar na Central";
+    submitBtn.textContent = "Entrar";
   }
 }
 

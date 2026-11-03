@@ -73,59 +73,35 @@
     </div>
   </main>
 
-  <!-- MODAL DE AUTENTICAÇÃO SUPABASE -->
+  <!-- MODAL DE AUTENTICAÇÃO -->
   <div class="modal-backdrop open" id="authModal">
-    <div class="modal-card" style="max-width: 440px;">
-      <div class="modal-header">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 4px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <div class="brand-logo" style="width: 26px; height: 26px; font-size: 14px;">🛡️</div>
-          <h3 class="modal-title">Porteiro Vision Cloud</h3>
+          <div class="brand-logo" style="width: 28px; height: 28px; font-size: 15px;">🛡️</div>
+          <h3 class="modal-title">Porteiro Vision</h3>
         </div>
       </div>
       
-      <div class="modal-body">
-        <div style="text-align: center; margin-bottom: 16px;">
-          <h4 style="font-size: 16px; color: #fff; margin-bottom: 4px;">Acesso Restrito</h4>
-          <p style="font-size: 12px; color: var(--text-muted);">Entre com suas credenciais para gerenciar a central</p>
-        </div>
-
+      <div class="modal-body" style="padding-top: 12px;">
         <form id="authForm" onsubmit="handleAuthSubmit(event)">
           <div class="form-group">
-            <label>E-mail</label>
-            <input type="email" id="authEmail" class="form-control" value="pedro9984@gmail.com" required>
+            <label>Usuário</label>
+            <input type="email" id="authEmail" class="form-control" placeholder="Digite seu e-mail de acesso" autocomplete="username" required>
           </div>
 
-          <div class="form-group" style="margin-top: 10px;">
+          <div class="form-group" style="margin-top: 12px;">
             <label>Senha</label>
-            <input type="password" id="authPassword" class="form-control" placeholder="••••••••" required>
+            <input type="password" id="authPassword" class="form-control" placeholder="••••••••" autocomplete="current-password" required>
           </div>
 
           <!-- Alerta de erro de autenticação -->
-          <div id="authAlert" class="test-alert" style="margin-top: 12px;"></div>
+          <div id="authAlert" class="test-alert" style="margin-top: 12px; display: none;"></div>
 
-          <button type="submit" class="btn-primary" id="authSubmitBtn" style="width: 100%; justify-content: center; margin-top: 16px; padding: 12px;">
-            Entrar na Central
+          <button type="submit" class="btn-primary" id="authSubmitBtn" style="width: 100%; justify-content: center; margin-top: 20px; padding: 12px; font-size: 14px;">
+            Entrar
           </button>
         </form>
-
-        <!-- Configuração Opcional do Supabase (para customizar URL/Key) -->
-        <div style="text-align: center; margin-top: 10px;">
-          <span class="auth-config-toggle" onclick="toggleSupabaseConfig()">⚙️ Configurar chaves do Supabase</span>
-        </div>
-
-        <div id="supabaseConfigBox" style="display: none; margin-top: 12px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
-          <div class="form-group">
-            <label style="font-size: 10px;">Supabase Project URL</label>
-            <input type="text" id="cfgSbUrl" class="form-control" style="font-size: 12px;" placeholder="https://xyz.supabase.co">
-          </div>
-          <div class="form-group" style="margin-top: 6px;">
-            <label style="font-size: 10px;">Supabase Anon Key</label>
-            <input type="password" id="cfgSbKey" class="form-control" style="font-size: 12px;" placeholder="eyJhbGciOi...">
-          </div>
-          <button type="button" class="btn-secondary" onclick="saveCustomSupabaseConfig()" style="width: 100%; margin-top: 8px; font-size: 12px;">
-            Salvar Chaves
-          </button>
-        </div>
       </div>
     </div>
   </div>
