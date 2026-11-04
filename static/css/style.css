@@ -816,13 +816,15 @@ html, body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  opacity: 0;
-  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity;
-}
-.standby-feed-img.active {
   opacity: 1;
+  transition: opacity 0.25s ease, filter 0.25s ease;
+  will-change: opacity, transform;
   z-index: 2;
+}
+.standby-feed-img.switching {
+  opacity: 0.85;
+  filter: brightness(0.9);
+}
 }
 
 .standby-stage.fit-cover .standby-feed-img {

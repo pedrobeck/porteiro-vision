@@ -699,7 +699,6 @@ let standbyTimerRemaining = 8;
 let standbyTimerInterval = null;
 let standbyCurrentCamId = null;
 let standbyHistory = [];
-let standbyActiveLayer = "A"; // 'A' ou 'B' para transição cross-fade suave
 let standbyIdleTimeout = null;
 let standbyClockInterval = null;
 let standbyFitMode = "contain"; // 'contain' ou 'cover'
@@ -710,6 +709,25 @@ function toggleStandbyMode() {
   } else {
     enterStandbyMode();
   }
+}
+
+// Pausa streams em segundo plano para liberar conexões e Wi-Fi no tablet
+function pauseGridStreams() {
+  document.querySelectorAll(".camera-cell .feed-img").forEach((img) => {
+    img.src = "";
+  });
+}
+
+// Retoma os streams normais ao sair do Standby
+function resumeGridStreams() {
+  const baseUrl = getStreamBaseUrl();
+  document.querySelectorAll(".camera-cell").forEach((cell) => {
+    const camId = cell.dataset.id;
+    const img = cell.querySelector(".feed-img");
+    if (img && camId) {
+      img.src = `${baseUrl}/api/stream/${camId}`;
+    }
+  });
 }
 
 function getFunctioningCameras() {
@@ -736,6 +754,9 @@ async function enterStandbyMode() {
   if (btn) btn.classList.add("active");
   overlay.style.display = "flex";
   overlay.classList.remove("idle", "cursor-hidden");
+
+  // Pausa o grid de fundo para liberar conexões e acelerar o tablet
+  pauseGridStreams();
 
   // Requisita tela cheia no navegador (ideal para tablets e TVs)
   try {
@@ -780,15 +801,19 @@ function exitStandbyMode() {
   clearInterval(standbyClockInterval);
   clearTimeout(standbyIdleTimeout);
 
-  // Para os streams das imagens para não consumir sockets/banda
-  const imgA = document.getElementById("standbyImgA");
-  const imgB = document.getElementById("standbyImgB");
-  if (imgA) imgA.src = "";
-  if (imgB) imgB.src = "";
+  // Desconecta o stream do standby
+  const feedImg = document.getElementById("standbyFeedImg");
+  if (feedImg) {
+    feedImg.onerror = null;
+    feedImg.src = "";
+  }
 
   // Remove listeners
   document.removeEventListener("keydown", handleStandbyKeyDown);
   document.removeEventListener("fullscreenchange", handleStandbyFullscreenChange);
+
+  // Retoma as câmeras normais do painel
+  resumeGridStreams();
 
   // Sai da tela cheia se ainda estiver ativo
   if (document.fullscreenElement) {
@@ -879,8 +904,7 @@ function switchStandbyCamera(isInitial = false) {
   const functioningCams = getFunctioningCameras();
   const emptyState = document.getElementById("standbyEmptyState");
   const counterEl = document.getElementById("standbyCamsCounter");
-  const imgA = document.getElementById("standbyImgA");
-  const imgB = document.getElementById("standbyImgB");
+  const feedImg = document.getElementById("standbyFeedImg");
 
   if (counterEl) {
     counterEl.textContent = `${functioningCams.length} Câmera(s) Online em Rotação`;
@@ -888,16 +912,14 @@ function switchStandbyCamera(isInitial = false) {
 
   if (functioningCams.length === 0) {
     if (emptyState) emptyState.style.display = "block";
-    if (imgA) imgA.style.display = "none";
-    if (imgB) imgB.style.display = "none";
+    if (feedImg) feedImg.style.display = "none";
     standbyCurrentCamId = null;
     resetStandbyTimer();
     return;
   }
 
   if (emptyState) emptyState.style.display = "none";
-  if (imgA) imgA.style.display = "block";
-  if (imgB) imgB.style.display = "block";
+  if (feedImg) feedImg.style.display = "block";
 
   const nextCam = pickRandomFunctioningCamera(standbyCurrentCamId);
   if (!nextCam) return;
@@ -911,40 +933,27 @@ function switchStandbyCamera(isInitial = false) {
   standbyCurrentCamId = nextCam.id;
   updateStandbyHud(nextCam);
 
-  // Transição Cross-Fade suave entre Cam A e Cam B
-  const baseUrl = getStreamBaseUrl();
-  const streamUrl = `${baseUrl}/api/stream/${nextCam.id}?standby=${Date.now()}`;
+  if (feedImg) {
+    const baseUrl = getStreamBaseUrl();
+    const streamUrl = `${baseUrl}/api/stream/${nextCam.id}?t=${Date.now()}`;
 
-  const incomingImg = standbyActiveLayer === "A" ? imgB : imgA;
-  const outgoingImg = standbyActiveLayer === "A" ? imgA : imgB;
+    // Efeito suave de transição sem apagar a imagem anterior
+    feedImg.classList.add("switching");
 
-  if (incomingImg && outgoingImg) {
-    incomingImg.src = streamUrl;
-    incomingImg.onload = () => {
-      incomingImg.classList.add("active");
-      outgoingImg.classList.remove("active");
-      standbyActiveLayer = standbyActiveLayer === "A" ? "B" : "A";
-      // Desconecta o stream anterior após transição para economizar conexões
-      setTimeout(() => {
-        if (!outgoingImg.classList.contains("active")) {
-          outgoingImg.src = "";
-        }
-      }, 550);
+    // Tratamento de erro resiliente (se der timeout no tablet, pula automaticamente)
+    feedImg.onerror = () => {
+      console.warn("[Standby] Erro ou timeout na câmera. Tentando próxima ativa...");
+      if (isStandbyActive) {
+        setTimeout(switchStandbyCamera, 1000);
+      }
     };
 
-    // Fallback se onload demorar para disparar com MJPEG
+    // A imagem anterior permanece na tela até o novo fluxo carregar os primeiros quadros!
+    feedImg.src = streamUrl;
+
     setTimeout(() => {
-      if (!incomingImg.classList.contains("active")) {
-        incomingImg.classList.add("active");
-        outgoingImg.classList.remove("active");
-        standbyActiveLayer = standbyActiveLayer === "A" ? "B" : "A";
-        setTimeout(() => {
-          if (!outgoingImg.classList.contains("active")) {
-            outgoingImg.src = "";
-          }
-        }, 550);
-      }
-    }, 250);
+      if (feedImg) feedImg.classList.remove("switching");
+    }, 300);
   }
 
   resetStandbyTimer();
@@ -1042,22 +1051,14 @@ function prevStandbyCamera() {
   standbyCurrentCamId = prevCam.id;
   updateStandbyHud(prevCam);
 
-  const baseUrl = getStreamBaseUrl();
-  const streamUrl = `${baseUrl}/api/stream/${prevCam.id}?standby=${Date.now()}`;
-  const imgA = document.getElementById("standbyImgA");
-  const imgB = document.getElementById("standbyImgB");
-
-  const incomingImg = standbyActiveLayer === "A" ? imgB : imgA;
-  const outgoingImg = standbyActiveLayer === "A" ? imgA : imgB;
-
-  if (incomingImg && outgoingImg) {
-    incomingImg.src = streamUrl;
-    incomingImg.classList.add("active");
-    outgoingImg.classList.remove("active");
-    standbyActiveLayer = standbyActiveLayer === "A" ? "B" : "A";
+  const feedImg = document.getElementById("standbyFeedImg");
+  if (feedImg) {
+    const baseUrl = getStreamBaseUrl();
+    feedImg.classList.add("switching");
+    feedImg.src = `${baseUrl}/api/stream/${prevCam.id}?t=${Date.now()}`;
     setTimeout(() => {
-      outgoingImg.src = "";
-    }, 550);
+      if (feedImg) feedImg.classList.remove("switching");
+    }, 300);
   }
 
   resetStandbyTimer();
