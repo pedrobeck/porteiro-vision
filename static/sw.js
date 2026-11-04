@@ -1,4 +1,4 @@
-const CACHE_NAME = "porteiro-vision-v2";
+const CACHE_NAME = "porteiro-vision-v2.7";
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

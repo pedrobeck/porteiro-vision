@@ -336,8 +336,8 @@ class CameraWorker:
                 cv2.putText(frame, f"{self.name} | {ts_str} | {self.fps} FPS", (15, h - 15), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
 
-                # Codifica para JPEG
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                # Codifica para JPEG otimizado para streaming
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
                 _, jpeg = cv2.imencode(".jpg", frame, encode_param)
                 
                 with self.lock:
@@ -493,18 +493,26 @@ class CameraManager:
 
     def generate_mjpeg(self, cam_id):
         worker = self.get_worker(cam_id)
+        last_count = -1
         while True:
             if not worker:
                 time.sleep(0.5)
                 worker = self.get_worker(cam_id)
                 continue
             
+            # Só transmite quando houver novo quadro (evita saturar Wi-Fi do tablet com duplicatas)
+            current_count = worker.frame_count
+            if current_count == last_count:
+                time.sleep(0.03)
+                continue
+
+            last_count = current_count
             frame_bytes = worker.get_jpeg()
             frame_len = len(frame_bytes)
             yield (b"--frame\r\n"
                    b"Content-Type: image/jpeg\r\n"
                    b"Content-Length: " + str(frame_len).encode("ascii") + b"\r\n\r\n" +
                    frame_bytes + b"\r\n")
-            time.sleep(0.04) # ~25 FPS máx
+            time.sleep(0.02)
 
 manager = CameraManager()

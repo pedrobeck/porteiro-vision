@@ -1196,6 +1196,7 @@ let nightSoundEnabled = true;
 let nightPollInterval = null;
 let nightWakeTimer = null;
 let nightClockInterval = null;
+let nightPosterInterval = null;
 let nightAudioCtx = null;
 
 function openNightModeModal() {
@@ -1329,6 +1330,7 @@ function exitNightMode() {
   clearInterval(nightPollInterval);
   clearInterval(nightWakeTimer);
   clearInterval(nightClockInterval);
+  clearInterval(nightPosterInterval);
 
   // Limpa stream e poster do alerta
   const feed = document.getElementById("nightWakeFeedImg");
@@ -1395,6 +1397,7 @@ function startNightClock() {
 function forceNightSleep() {
   isNightAwake = false;
   clearInterval(nightWakeTimer);
+  clearInterval(nightPosterInterval);
 
   const sleepView = document.getElementById("nightSleepView");
   const wakeView = document.getElementById("nightWakeView");
@@ -1466,8 +1469,8 @@ function startNightMotionPolling() {
 function triggerNightWake(camId, camName) {
   const sleepView = document.getElementById("nightSleepView");
   const wakeView = document.getElementById("nightWakeView");
-  const feed = document.getElementById("nightWakeFeedImg");
-  const poster = document.getElementById("nightWakePosterImg");
+  let feed = document.getElementById("nightWakeFeedImg");
+  let poster = document.getElementById("nightWakePosterImg");
   const nameEl = document.getElementById("nightAlertCamName");
 
   // SE JÁ ESTÁ ACORDADO: renova o tempo de vigília e nunca interrompe a transmissão ativa!
@@ -1486,6 +1489,16 @@ function triggerNightWake(camId, camName) {
   const snapshotUrl = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
   const streamUrl = `${baseUrl}/api/stream/${camId}?wake=${Date.now()}`;
 
+  // Se o poster não existir no DOM (ex: cache de versão antiga), cria dinamicamente
+  if (!poster && wakeView) {
+    poster = document.createElement("img");
+    poster.id = "nightWakePosterImg";
+    poster.className = "night-wake-feed-img";
+    poster.alt = "Foto Alerta";
+    poster.style.zIndex = "1";
+    wakeView.insertBefore(poster, feed);
+  }
+
   // 1. Snapshot instantâneo (Renderiza em ~20ms da memória do Hub, eliminando 100% da tela preta!)
   if (poster) {
     poster.src = snapshotUrl;
@@ -1493,6 +1506,8 @@ function triggerNightWake(camId, camName) {
 
   // 2. Conecta stream de vídeo contínuo MJPEG no topo
   if (feed) {
+    feed.style.zIndex = "2";
+    feed.style.background = "transparent";
     feed.dataset.camId = camId;
     feed.src = streamUrl;
 
@@ -1503,6 +1518,16 @@ function triggerNightWake(camId, camName) {
       }
     };
   }
+
+  // 3. Fallback contínuo de fotos: atualiza o poster a cada 1.2s para garantir imagem mesmo com lag de Wi-Fi
+  clearInterval(nightPosterInterval);
+  nightPosterInterval = setInterval(() => {
+    if (isNightAwake && poster && isNightModeActive) {
+      poster.src = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
+    } else {
+      clearInterval(nightPosterInterval);
+    }
+  }, 1200);
 
   // Toca alerta sonoro suave se habilitado
   if (nightSoundEnabled) {
