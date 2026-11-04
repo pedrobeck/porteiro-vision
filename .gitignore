@@ -11,3 +11,7 @@ add_condo_cameras.py
 .vercel
 cloudflared.exe
 *.log
+*.apk
+android/.gradle/
+android/app/build/
+android/build/
