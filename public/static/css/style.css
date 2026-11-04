@@ -741,6 +741,35 @@ html, body {
   }
 }
 
+/* BOTÃO DE DOWNLOAD DO APK PARA TABLET */
+.apk-download-btn {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.16), rgba(0, 210, 255, 0.16));
+  border: 1px solid rgba(0, 230, 118, 0.4);
+  color: #00e676;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(0, 230, 118, 0.12);
+  min-height: 36px;
+}
+.apk-download-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.35), rgba(0, 210, 255, 0.35));
+  border-color: rgba(0, 230, 118, 0.8);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(0, 230, 118, 0.4);
+  transform: translateY(-1px);
+}
+.apk-icon {
+  font-size: 14px;
+}
+
 /* ========================================================
    MODO STANDBY (PATRULHA EM TELA CHEIA ALEATÓRIA)
    ======================================================== */

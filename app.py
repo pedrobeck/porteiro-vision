@@ -8,7 +8,7 @@ except Exception:
     cv2 = None
     HAS_CV2 = False
 
-from flask import Flask, render_template, request, jsonify, Response, send_from_directory
+from flask import Flask, render_template, request, jsonify, Response, send_from_directory, redirect
 from storage import load_cameras, save_cameras, add_camera, update_camera, delete_camera, get_camera, build_rtsp_url
 from camera_manager import manager
 from dvrip_client import DVRIPClient
@@ -85,6 +85,14 @@ def manifest():
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory("static", "sw.js", mimetype="application/javascript")
+
+@app.route("/download/PorteiroVision.apk")
+@app.route("/download/apk")
+def download_apk():
+    apk_path = os.path.join(BASE_DIR, "static", "PorteiroVision.apk")
+    if os.path.exists(apk_path):
+        return send_from_directory("static", "PorteiroVision.apk", as_attachment=True, mimetype="application/vnd.android.package-archive")
+    return redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v1.0.0-apk/PorteiroVision.apk")
 
 # --- API DE CÂMERAS ---
 

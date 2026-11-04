@@ -1,0 +1,64 @@
+name: Build Android APK
+
+on:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.2
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
+
+      - name: Build Debug APK
+        working-directory: ./android
+        run: gradle assembleDebug --stacktrace
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p build-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/PorteiroVision.apk
+          ls -la build-output/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PorteiroVision-APK
+          path: build-output/PorteiroVision.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0-apk
+          name: "Porteiro Vision v1.0.0 (Android APK)"
+          body: |
+            ### Porteiro Vision - Aplicativo Oficial para Tablet / TV Box (Android)
+            
+            - 🛡️ **Kiosk Fullscreen:** Oculta barras de navegação do Android.
+            - ⚡ **Tela Sempre Acesa:** Impede o tablet de desligar a tela durante o monitoramento.
+            - 🚀 **Zero Latência:** Conexão direta com o Hub local (`http://192.168.4.127:8080`) e fallback na Nuvem.
+            - 💤 **Modo Standby Integrado:** Patrulha e rotação aleatória de câmeras ativas.
+          files: build-output/PorteiroVision.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
