@@ -87,6 +87,12 @@
         <span class="standby-text">Standby</span>
       </button>
 
+      <!-- Botão Modo Noturno Inteligente (Sensor por Câmera) -->
+      <button class="night-mode-btn" id="nightModeBtn" onclick="openNightModeModal()" title="Modo Noturno Inteligente: Tela escura que acende ao detectar movimento">
+        <span class="night-icon">🌙</span>
+        <span class="night-text">Noturno</span>
+      </button>
+
       <!-- Botão Tela Cheia -->
       <button class="action-icon-btn" onclick="toggleFullscreen()" title="Tela Cheia">⛶</button>
 
@@ -270,6 +276,133 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURAÇÃO DO MODO NOTURNO INTELIGENTE -->
+  <div class="modal-backdrop" id="nightModeModal">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">🌙</span>
+          <h2>Modo Noturno Inteligente</h2>
+        </div>
+        <button class="close-btn" onclick="closeNightModeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
+          A tela do tablet fica <strong>completamente escura</strong> (não ilumina o quarto) e <strong>acende na hora em tela cheia</strong> se a câmera selecionada detectar alguém se movimentando.
+        </p>
+
+        <!-- Câmera Monitorada -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="nightCameraSelect" style="font-size: 12px; font-weight: 700; color: var(--accent-cyan);">
+            📹 Câmera que Dispara o Alerta (Gatilho)
+          </label>
+          <select id="nightCameraSelect" class="form-input" style="font-weight: 600; cursor: pointer;">
+            <!-- Opções preenchidas dinamicamente via JS -->
+          </select>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            Exemplo: Selecione a <strong>Câmera Garagem</strong> para vigiar a entrada de carros e pessoas.
+          </div>
+        </div>
+
+        <!-- Tempo de Tela Acesa -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="nightDurationSelect" style="font-size: 12px; font-weight: 700; color: var(--text-main);">
+            ⏱️ Manter Tela Acesa Após Movimento
+          </label>
+          <select id="nightDurationSelect" class="form-input" style="cursor: pointer;">
+            <option value="15">15 Segundos</option>
+            <option value="30" selected>30 Segundos (Recomendado)</option>
+            <option value="60">1 Minuto</option>
+            <option value="120">2 Minutos</option>
+          </select>
+        </div>
+
+        <!-- Alerta Sonoro -->
+        <div class="form-group" style="margin-bottom: 18px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="nightSoundEnabled" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">
+              🔔 Tocar aviso sonoro suave (Chime) ao detectar
+            </span>
+          </label>
+          <div style="font-size: 11px; color: var(--text-muted); margin-left: 28px; margin-top: 2px;">
+            Toca um som sutil para chamar sua atenção no quarto.
+          </div>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div style="display: flex; gap: 8px; margin-top: 20px;">
+          <button type="button" class="btn-secondary" onclick="closeNightModeModal()" style="flex: 1;">
+            Cancelar
+          </button>
+          <button type="button" class="btn-primary" onclick="startNightModeFromModal()" style="flex: 2; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-color: #60a5fa;">
+            🌙 Iniciar Modo Noturno Agora
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY DO MODO NOTURNO INTELIGENTE (FULLSCREEN KIOSK) -->
+  <div id="nightOverlay" class="night-overlay" style="display: none;">
+    
+    <!-- ESTADO 1: TELA DE DESCANSO NOTURNO (QUARTO ESCURO) -->
+    <div id="nightSleepView" class="night-sleep-view">
+      <div class="night-sleep-content">
+        <div class="night-sleep-moon">🌙</div>
+        <div id="nightSleepClock" class="night-sleep-clock">00:00</div>
+        <div id="nightSleepDate" class="night-sleep-date">Carregando data...</div>
+        
+        <div class="night-sleep-status-pill">
+          <span class="night-radar-pulse"></span>
+          <span>Vigiando: <strong id="nightMonitoredCamLabel">Câmera Garagem</strong></span>
+        </div>
+
+        <div class="night-sleep-hint">
+          A tela acenderá imediatamente se houver movimento
+        </div>
+      </div>
+
+      <button class="night-exit-sleep-btn" onclick="exitNightMode()" title="Sair do Modo Noturno (ESC)">
+        <span>✕</span> Sair
+      </button>
+    </div>
+
+    <!-- ESTADO 2: TELA ACORDADA (MOVIMENTO DETECTADO!) -->
+    <div id="nightWakeView" class="night-wake-view" style="display: none;">
+      <!-- Stream da Câmera em Fullscreen Total -->
+      <img id="nightWakeFeedImg" class="night-wake-feed-img" alt="Câmera em Alerta">
+
+      <!-- Faixa Superior de Alerta -->
+      <div class="night-wake-top-bar">
+        <div class="night-alert-badge">
+          <span class="night-alert-pulse"></span>
+          <span class="night-alert-text">⚠️ MOVIMENTO DETECTADO: <strong id="nightAlertCamName">GARAGEM</strong></span>
+        </div>
+
+        <div class="night-wake-timer-pill" id="nightWakeTimerPill">
+          Retornando ao descanso em <strong id="nightWakeCountdown">30</strong>s
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button class="night-wake-btn" onclick="forceNightSleep()" title="Voltar ao descanso escuro agora">
+            🌙 Dormir
+          </button>
+          <button class="night-wake-btn night-wake-btn-exit" onclick="exitNightMode()" title="Sair do Modo Noturno">
+            ✕ Sair
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de progresso do tempo acordado -->
+      <div class="night-progress-track">
+        <div id="nightProgressBar" class="night-progress-bar"></div>
+      </div>
+    </div>
+
   </div>
 
   <!-- OVERLAY DO MODO STANDBY (FULLSCREEN ROTATIVO ALEATÓRIO) -->

@@ -94,6 +94,10 @@ def download_apk():
         return send_from_directory("static", "PorteiroVision.apk", as_attachment=True, mimetype="application/vnd.android.package-archive")
     return redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v1.0.0-apk/PorteiroVision.apk")
 
+@app.route("/api/motion", methods=["GET"])
+def api_motion_status():
+    return jsonify(manager.get_motion_status())
+
 # --- API DE CÂMERAS ---
 
 @app.route("/api/cameras", methods=["GET"])

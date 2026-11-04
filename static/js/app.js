@@ -1097,3 +1097,360 @@ function toggleStandbyFit() {
     if (btn) btn.textContent = "⛶ Ajustar";
   }
 }
+
+// ========================================================
+// MODO NOTURNO INTELIGENTE (TELA ESCURA COM AUTO-WAKE)
+// ========================================================
+
+let isNightModeActive = false;
+let isNightAwake = false;
+let nightSelectedCamId = "ALL";
+let nightDurationSec = 30;
+let nightSoundEnabled = true;
+let nightPollInterval = null;
+let nightWakeTimer = null;
+let nightClockInterval = null;
+let nightAudioCtx = null;
+
+function openNightModeModal() {
+  const modal = document.getElementById("nightModeModal");
+  const select = document.getElementById("nightCameraSelect");
+  if (!modal || !select) return;
+
+  // Preenche opções de câmeras
+  select.innerHTML = "";
+  
+  // Opção Qualquer Câmera
+  const allOpt = document.createElement("option");
+  allOpt.value = "ALL";
+  allOpt.textContent = "🔍 Qualquer Câmera (Todas com Movimento)";
+  select.appendChild(allOpt);
+
+  let garageId = null;
+  if (window.cameras && window.cameras.length > 0) {
+    window.cameras.forEach((cam) => {
+      const opt = document.createElement("option");
+      opt.value = cam.id;
+      opt.textContent = `📹 ${cam.name} (${(cam.brand || "RTSP").toUpperCase()})`;
+      if (cam.name.toLowerCase().includes("garagem")) {
+        garageId = cam.id;
+      }
+      select.appendChild(opt);
+    });
+  }
+
+  // Recupera preferências salvas ou pré-seleciona a Garagem
+  const savedCam = localStorage.getItem("night_cam_id") || garageId || "ALL";
+  select.value = savedCam;
+
+  const savedDuration = localStorage.getItem("night_duration") || "30";
+  const durationSelect = document.getElementById("nightDurationSelect");
+  if (durationSelect) durationSelect.value = savedDuration;
+
+  const savedSound = localStorage.getItem("night_sound");
+  const soundCheck = document.getElementById("nightSoundEnabled");
+  if (soundCheck && savedSound !== null) {
+    soundCheck.checked = savedSound === "true";
+  }
+
+  modal.classList.add("open");
+}
+
+function closeNightModeModal() {
+  const modal = document.getElementById("nightModeModal");
+  if (modal) modal.classList.remove("open");
+}
+
+function startNightModeFromModal() {
+  const select = document.getElementById("nightCameraSelect");
+  const durationSelect = document.getElementById("nightDurationSelect");
+  const soundCheck = document.getElementById("nightSoundEnabled");
+
+  nightSelectedCamId = select ? select.value : "ALL";
+  nightDurationSec = durationSelect ? (parseInt(durationSelect.value) || 30) : 30;
+  nightSoundEnabled = soundCheck ? soundCheck.checked : true;
+
+  localStorage.setItem("night_cam_id", nightSelectedCamId);
+  localStorage.setItem("night_duration", nightDurationSec);
+  localStorage.setItem("night_sound", nightSoundEnabled);
+
+  closeNightModeModal();
+  enterNightMode();
+}
+
+async function enterNightMode() {
+  const overlay = document.getElementById("nightOverlay");
+  const btn = document.getElementById("nightModeBtn");
+  if (!overlay) return;
+
+  isNightModeActive = true;
+  isNightAwake = false;
+
+  if (btn) btn.classList.add("active");
+  overlay.style.display = "flex";
+
+  // Atualiza etiqueta da câmera monitorada
+  const labelEl = document.getElementById("nightMonitoredCamLabel");
+  if (labelEl) {
+    if (nightSelectedCamId === "ALL") {
+      labelEl.textContent = "Todas as Câmeras";
+    } else {
+      const cam = (window.cameras || []).find((c) => c.id === nightSelectedCamId);
+      labelEl.textContent = cam ? cam.name : "Câmera Selecionada";
+    }
+  }
+
+  // Pausa streams do painel para economizar Wi-Fi e bateria no tablet
+  pauseGridStreams();
+
+  // Requisita tela cheia
+  try {
+    if (!document.fullscreenElement) {
+      if (overlay.requestFullscreen) {
+        await overlay.requestFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    }
+  } catch (err) {}
+
+  // Inicia relógio noturno
+  startNightClock();
+
+  // Garante estado de descanso
+  forceNightSleep();
+
+  // Inicia verificação rápida de movimento (a cada 750ms)
+  startNightMotionPolling();
+
+  // Teclado ESC para sair
+  document.addEventListener("keydown", handleNightKeyDown);
+  document.addEventListener("fullscreenchange", handleNightFullscreenChange);
+}
+
+function exitNightMode() {
+  const overlay = document.getElementById("nightOverlay");
+  const btn = document.getElementById("nightModeBtn");
+
+  isNightModeActive = false;
+  isNightAwake = false;
+
+  if (btn) btn.classList.remove("active");
+  if (overlay) overlay.style.display = "none";
+
+  // Limpa timers
+  clearInterval(nightPollInterval);
+  clearInterval(nightWakeTimer);
+  clearInterval(nightClockInterval);
+
+  // Limpa stream do alerta
+  const feed = document.getElementById("nightWakeFeedImg");
+  if (feed) feed.src = "";
+
+  // Remove listeners
+  document.removeEventListener("keydown", handleNightKeyDown);
+  document.removeEventListener("fullscreenchange", handleNightFullscreenChange);
+
+  // Retoma as câmeras do painel
+  resumeGridStreams();
+
+  // Sai de tela cheia
+  if (document.fullscreenElement) {
+    try {
+      document.exitFullscreen().catch(() => {});
+    } catch (e) {}
+  }
+}
+
+function handleNightKeyDown(e) {
+  if (!isNightModeActive) return;
+  if (e.key === "Escape") {
+    exitNightMode();
+  }
+}
+
+function handleNightFullscreenChange() {
+  if (isNightModeActive && !document.fullscreenElement) {
+    exitNightMode();
+  }
+}
+
+function startNightClock() {
+  const clockEl = document.getElementById("nightSleepClock");
+  const dateEl = document.getElementById("nightSleepDate");
+
+  const update = () => {
+    const now = new Date();
+    if (clockEl) {
+      clockEl.textContent = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long"
+      });
+    }
+  };
+
+  update();
+  clearInterval(nightClockInterval);
+  nightClockInterval = setInterval(update, 1000);
+}
+
+function forceNightSleep() {
+  isNightAwake = false;
+  clearInterval(nightWakeTimer);
+
+  const sleepView = document.getElementById("nightSleepView");
+  const wakeView = document.getElementById("nightWakeView");
+  const feed = document.getElementById("nightWakeFeedImg");
+
+  if (sleepView) sleepView.style.display = "flex";
+  if (wakeView) wakeView.style.display = "none";
+  if (feed) feed.src = "";
+}
+
+function startNightMotionPolling() {
+  clearInterval(nightPollInterval);
+
+  const checkMotion = async () => {
+    if (!isNightModeActive) return;
+    try {
+      const baseUrl = getStreamBaseUrl();
+      const res = await fetch(`${baseUrl}/api/motion?t=${Date.now()}`);
+      if (!res.ok) return;
+      const motionData = await res.json();
+
+      let triggeredCamId = null;
+      let triggeredCamName = "";
+
+      if (nightSelectedCamId === "ALL") {
+        for (const [cid, data] of Object.entries(motionData)) {
+          if (data.motion === true) {
+            triggeredCamId = cid;
+            triggeredCamName = data.name;
+            break;
+          }
+        }
+      } else {
+        const camData = motionData[nightSelectedCamId];
+        if (camData && camData.motion === true) {
+          triggeredCamId = nightSelectedCamId;
+          triggeredCamName = camData.name;
+        }
+      }
+
+      if (triggeredCamId) {
+        triggerNightWake(triggeredCamId, triggeredCamName);
+      }
+    } catch (err) {}
+  };
+
+  checkMotion();
+  nightPollInterval = setInterval(checkMotion, 750);
+}
+
+function triggerNightWake(camId, camName) {
+  const sleepView = document.getElementById("nightSleepView");
+  const wakeView = document.getElementById("nightWakeView");
+  const feed = document.getElementById("nightWakeFeedImg");
+  const nameEl = document.getElementById("nightAlertCamName");
+
+  if (nameEl) nameEl.textContent = (camName || "GARAGEM").toUpperCase();
+
+  // Se já estava acordado na mesma câmera, apenas reinicia a contagem
+  if (isNightAwake && feed && feed.dataset.camId === camId) {
+    resetNightWakeCountdown();
+    return;
+  }
+
+  isNightAwake = true;
+  if (sleepView) sleepView.style.display = "none";
+  if (wakeView) wakeView.style.display = "flex";
+
+  if (feed) {
+    feed.dataset.camId = camId;
+    const baseUrl = getStreamBaseUrl();
+    feed.src = `${baseUrl}/api/stream/${camId}?wake=${Date.now()}`;
+  }
+
+  // Toca alerta sonoro se habilitado
+  if (nightSoundEnabled) {
+    playNightChime();
+  }
+
+  resetNightWakeCountdown();
+}
+
+function resetNightWakeCountdown() {
+  clearInterval(nightWakeTimer);
+
+  const totalMs = nightDurationSec * 1000;
+  let remainingMs = totalMs;
+  const stepMs = 100;
+
+  const countEl = document.getElementById("nightWakeCountdown");
+  const barEl = document.getElementById("nightProgressBar");
+
+  if (countEl) countEl.textContent = nightDurationSec;
+  if (barEl) barEl.style.width = "100%";
+
+  nightWakeTimer = setInterval(() => {
+    if (!isNightModeActive || !isNightAwake) {
+      clearInterval(nightWakeTimer);
+      return;
+    }
+
+    remainingMs -= stepMs;
+    const secLeft = Math.ceil(remainingMs / 1000);
+    const percent = Math.max(0, (remainingMs / totalMs) * 100);
+
+    if (countEl) countEl.textContent = secLeft;
+    if (barEl) barEl.style.width = `${percent}%`;
+
+    if (remainingMs <= 0) {
+      clearInterval(nightWakeTimer);
+      console.log("[Modo Noturno] Tempo esgotado. Retornando ao descanso escuro...");
+      forceNightSleep();
+    }
+  }, stepMs);
+}
+
+// Sintetizador Web Audio API: Chime suave de radar / segurança sem precisar de arquivo externo
+function playNightChime() {
+  try {
+    if (!nightAudioCtx) {
+      nightAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (nightAudioCtx.state === "suspended") {
+      nightAudioCtx.resume();
+    }
+
+    const now = nightAudioCtx.currentTime;
+
+    // Primeiro tom suave (880 Hz - Nota A5)
+    const osc1 = nightAudioCtx.createOscillator();
+    const gain1 = nightAudioCtx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(880, now);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc1.connect(gain1);
+    gain1.connect(nightAudioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.4);
+
+    // Segundo tom harmônico (1320 Hz - Nota E6)
+    const osc2 = nightAudioCtx.createOscillator();
+    const gain2 = nightAudioCtx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(1320, now + 0.12);
+    gain2.gain.setValueAtTime(0.25, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    osc2.connect(gain2);
+    gain2.connect(nightAudioCtx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.65);
+  } catch (err) {}
+}
