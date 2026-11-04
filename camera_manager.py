@@ -124,21 +124,33 @@ class CameraWorker:
         self.status = "CONNECTING"
         self.proc = proc
         self.last_seen = datetime.now()
+        connect_start = time.time()
         fps_timer = time.time()
         frames_in_sec = 0
         buffer = b""
 
-        # Watchdog para reiniciar processo caso o fluxo pare por mais de 10s
+        # Watchdog inteligente: dá tempo para handshake P2P e só reseta se travar
         def watchdog():
             while self.running and proc.poll() is None:
                 time.sleep(2.0)
-                if self.last_seen and (datetime.now() - self.last_seen).total_seconds() > 10.0:
-                    print(f"[Worker {self.cam_id}] Watchdog: fluxo sem quadros há mais de 10s, reiniciando conexão...", flush=True)
-                    try:
-                        proc.terminate()
-                    except Exception:
-                        pass
-                    break
+                # Durante conexão inicial, aguarda até 30s pelo handshake P2P do DVR
+                if self.status == "CONNECTING":
+                    if time.time() - connect_start > 30.0:
+                        print(f"[Worker {self.cam_id}] Timeout de handshake P2P (30s), reiniciando...", flush=True)
+                        try:
+                            proc.terminate()
+                        except Exception:
+                            pass
+                        break
+                # Se já estava ONLINE e o fluxo de vídeo parou há mais de 15s
+                elif self.status == "ONLINE":
+                    if self.last_seen and (datetime.now() - self.last_seen).total_seconds() > 15.0:
+                        print(f"[Worker {self.cam_id}] Watchdog: fluxo travou há mais de 15s, reiniciando conexão...", flush=True)
+                        try:
+                            proc.terminate()
+                        except Exception:
+                            pass
+                        break
 
         threading.Thread(target=watchdog, daemon=True).start()
 
