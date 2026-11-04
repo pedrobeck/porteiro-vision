@@ -121,19 +121,19 @@ class CameraWorker:
             time.sleep(retry_delay)
             return
 
-        self.status = "ONLINE"
+        self.status = "CONNECTING"
         self.proc = proc
         self.last_seen = datetime.now()
         fps_timer = time.time()
         frames_in_sec = 0
         buffer = b""
 
-        # Watchdog para reiniciar processo caso o fluxo pare por mais de 15s
+        # Watchdog para reiniciar processo caso o fluxo pare por mais de 10s
         def watchdog():
             while self.running and proc.poll() is None:
                 time.sleep(2.0)
-                if self.last_seen and (datetime.now() - self.last_seen).total_seconds() > 15.0:
-                    print(f"[Worker {self.cam_id}] Watchdog: fluxo sem quadros há mais de 15s, reiniciando conexão...", flush=True)
+                if self.last_seen and (datetime.now() - self.last_seen).total_seconds() > 10.0:
+                    print(f"[Worker {self.cam_id}] Watchdog: fluxo sem quadros há mais de 10s, reiniciando conexão...", flush=True)
                     try:
                         proc.terminate()
                     except Exception:
@@ -168,6 +168,7 @@ class CameraWorker:
                 buffer = buffer[b+2:]
 
                 if len(jpg) > 1000:
+                    self.status = "ONLINE"
                     self.last_seen = datetime.now()
                     self.frame_count += 1
                     frames_in_sec += 1

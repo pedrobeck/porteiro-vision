@@ -140,6 +140,17 @@ def start_p2p_bridge():
             if "Porta local mapeada" in line:
                 print(f"[P2P Bridge] {line.strip()}")
                 break
+
+        # Thread de drenagem de saída para nunca travar o buffer do pipe no Windows
+        def _drain_bridge_stdout():
+            while proc.poll() is None:
+                l = proc.stdout.readline()
+                if not l:
+                    break
+                s = l.strip()
+                if s and "P2P Bridge" in s:
+                    print(s, flush=True)
+        threading.Thread(target=_drain_bridge_stdout, daemon=True).start()
         return proc
     except Exception as e:
         print(f"[P2P Bridge] Erro ao iniciar ponte P2P: {e}")
@@ -217,6 +228,16 @@ def main():
         webbrowser.open(f"http://localhost:{port}")
     
     threading.Thread(target=_open_browser, daemon=True).start()
+
+    # Monitor de processos filhos (auto-cura se a ponte cair)
+    def _monitor_subprocesses():
+        nonlocal bridge_proc
+        while True:
+            time.sleep(5)
+            if bridge_proc and bridge_proc.poll() is not None:
+                print("[Watchdog Hub] Ponte P2P encerrou inesperadamente. Reiniciando...", flush=True)
+                bridge_proc = start_p2p_bridge()
+    threading.Thread(target=_monitor_subprocesses, daemon=True).start()
 
     # Importa e roda o app Flask local
     sys.path.insert(0, BASE_DIR)
