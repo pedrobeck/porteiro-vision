@@ -1,5 +1,6 @@
 import os
 import socket
+import threading
 
 try:
     import cv2
@@ -164,7 +165,7 @@ def api_update_camera(cam_id):
     updated = update_camera(cam_id, data)
     if not updated:
         return jsonify({"error": "Câmera não encontrada"}), 404
-    manager.restart_worker(updated)
+    threading.Thread(target=manager.restart_worker, args=(updated,), daemon=True).start()
     return jsonify(updated)
 
 @app.route("/api/cameras/<cam_id>", methods=["DELETE"])

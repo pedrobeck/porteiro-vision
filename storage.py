@@ -70,6 +70,8 @@ def add_camera(cam_data):
     return camera
 
 def update_camera(cam_id, cam_data):
+    if isinstance(cam_id, str) and ("_sub1" in cam_id or "_sub2" in cam_id):
+        cam_id = cam_id.rsplit("_", 1)[0]
     cameras = load_cameras()
     for idx, c in enumerate(cameras):
         if c["id"] == cam_id:
@@ -78,13 +80,17 @@ def update_camera(cam_id, cam_data):
                 if k in cam_data:
                     c[k] = cam_data[k]
             if not cam_data.get("custom_url"):
-                c["custom_url"] = ""
+                c["custom_url"] = build_rtsp_url(c)
             cameras[idx] = c
             save_cameras(cameras)
             return c
     return None
 
 def delete_camera(cam_id):
+    if isinstance(cam_id, str) and ("_sub1" in cam_id or "_sub2" in cam_id):
+        parent_id = cam_id.rsplit("_", 1)[0]
+        update_camera(parent_id, {"multi_lens": False})
+        return True
     cameras = load_cameras()
     new_cameras = [c for c in cameras if c["id"] != cam_id]
     if len(new_cameras) != len(cameras):

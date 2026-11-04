@@ -256,7 +256,8 @@ function setLayout(layout) {
 // --- CARREGAMENTO E RENDERIZAÇÃO DAS CÂMERAS ---
 async function loadCameras() {
   try {
-    const res = await fetch("/api/cameras");
+    const baseUrl = getStreamBaseUrl();
+    const res = await fetch(`${baseUrl}/api/cameras`);
     window.cameras = await res.json();
     renderGrid();
   } catch (err) {
@@ -644,23 +645,30 @@ async function testConnection() {
 }
 
 async function saveCameraForm() {
+  const saveBtn = document.getElementById("saveCameraBtn");
   const data = getFormData();
   if (!data.host) {
     alert("Por favor, informe o IP ou endereço da câmera.");
     return;
   }
 
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = "⏳ Salvando...";
+  }
+
   try {
+    const baseUrl = getStreamBaseUrl();
     let res;
     if (editingCamId) {
-      res = await fetch(`/api/cameras/${editingCamId}`, {
+      res = await fetch(`${baseUrl}/api/cameras/${editingCamId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       });
       data.id = editingCamId;
     } else {
-      res = await fetch("/api/cameras", {
+      res = await fetch(`${baseUrl}/api/cameras`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
@@ -668,11 +676,11 @@ async function saveCameraForm() {
     }
 
     if (res.ok) {
+      closeModal();
       // Salva também na nuvem do Supabase se o usuário estiver logado
       if (typeof saveCameraToSupabase === "function") {
-        await saveCameraToSupabase(data);
+        saveCameraToSupabase(data).catch(() => {});
       }
-      closeModal();
       await loadCameras();
     } else {
       const err = await res.json();
@@ -680,18 +688,24 @@ async function saveCameraForm() {
     }
   } catch (err) {
     alert("Erro de conexão com o servidor: " + err.message);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = "Salvar Câmera";
+    }
   }
 }
 
 async function deleteCamera(camId) {
   if (!confirm("Tem certeza que deseja excluir esta câmera?")) return;
   try {
-    const res = await fetch(`/api/cameras/${camId}`, { method: "DELETE" });
+    const baseUrl = getStreamBaseUrl();
+    const res = await fetch(`${baseUrl}/api/cameras/${camId}`, { method: "DELETE" });
     if (res.ok) {
-      if (typeof deleteCameraFromSupabase === "function") {
-        await deleteCameraFromSupabase(camId);
-      }
       closeModal();
+      if (typeof deleteCameraFromSupabase === "function") {
+        deleteCameraFromSupabase(camId).catch(() => {});
+      }
       await loadCameras();
     }
   } catch (err) {
