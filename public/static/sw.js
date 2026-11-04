@@ -1,15 +1,6 @@
-const CACHE_NAME = "porteiro-vision-v1";
-const ASSETS = [
-  "/",
-  "/static/css/style.css",
-  "/static/js/app.js",
-  "/manifest.json"
-];
+const CACHE_NAME = "porteiro-vision-v2";
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
   self.skipWaiting();
 });
 
@@ -17,9 +8,7 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.map((k) => {
-          if (k !== CACHE_NAME) return caches.delete(k);
-        })
+        keys.map((k) => caches.delete(k))
       );
     })
   );
@@ -27,11 +16,20 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // Ignora chamadas de API e streams dinâmicos
-  if (e.request.url.includes("/api/")) {
+  // Ignora chamadas de API, downloads e streams dinâmicos
+  if (e.request.url.includes("/api/") || e.request.url.includes("/download/") || e.request.method !== "GET") {
     return;
   }
+  // Estratégia Network-First: Sempre busca a versão mais recente na rede
   e.respondWith(
-    caches.match(e.request).then((res) => res || fetch(e.request))
+    fetch(e.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
