@@ -76,6 +76,8 @@ def update_camera(cam_id, cam_data):
                       "channel", "stream_type", "custom_url", "ptz_enabled", "order"]:
                 if k in cam_data:
                     c[k] = cam_data[k]
+            if not cam_data.get("custom_url"):
+                c["custom_url"] = ""
             cameras[idx] = c
             save_cameras(cameras)
             return c

@@ -530,6 +530,7 @@ function openAddCameraModal() {
   document.getElementById("modalTitle").textContent = "Cadastrar Nova Câmera";
   document.getElementById("cameraForm").reset();
   document.getElementById("camPort").value = 554;
+  document.getElementById("camChannel").value = 1;
   document.getElementById("camUser").value = "admin";
   document.getElementById("testResult").className = "test-alert";
   document.getElementById("deleteCameraBtn").style.display = "none";
@@ -547,6 +548,7 @@ function openEditCameraModal(camId, event) {
   document.getElementById("camBrand").value = cam.brand || "generic";
   document.getElementById("camHost").value = cam.host || "";
   document.getElementById("camPort").value = cam.port || 554;
+  document.getElementById("camChannel").value = cam.channel || 1;
   document.getElementById("camUser").value = cam.username || "";
   document.getElementById("camPassword").value = cam.password || "";
   document.getElementById("camStreamType").value = cam.stream_type || "sub";
@@ -661,6 +663,7 @@ function getFormData() {
     brand: document.getElementById("camBrand").value,
     host: document.getElementById("camHost").value,
     port: parseInt(document.getElementById("camPort").value) || 554,
+    channel: parseInt(document.getElementById("camChannel").value) || 1,
     username: document.getElementById("camUser").value,
     password: document.getElementById("camPassword").value,
     stream_type: document.getElementById("camStreamType").value,
