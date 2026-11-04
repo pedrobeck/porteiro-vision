@@ -740,3 +740,394 @@ html, body {
     max-height: 94dvh;
   }
 }
+
+/* ========================================================
+   MODO STANDBY (PATRULHA EM TELA CHEIA ALEATÓRIA)
+   ======================================================== */
+
+.standby-btn {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(59, 130, 246, 0.22));
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  color: #f3e8ff;
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+  min-height: 36px;
+}
+.standby-btn:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(59, 130, 246, 0.4));
+  border-color: rgba(168, 85, 247, 0.8);
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.4);
+  transform: translateY(-1px);
+}
+.standby-btn.active {
+  background: linear-gradient(135deg, #9333ea, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(147, 51, 234, 0.7);
+}
+.standby-icon {
+  font-size: 15px;
+}
+
+/* OVERLAY STANDBY FULLSCREEN */
+.standby-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #000000;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+.standby-overlay.cursor-hidden {
+  cursor: none;
+}
+
+/* PALCO DE EXIBIÇÃO DE VÍDEO */
+.standby-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, #0a0d14 0%, #000000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.standby-feed-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+.standby-feed-img.active {
+  opacity: 1;
+  z-index: 2;
+}
+
+.standby-stage.fit-cover .standby-feed-img {
+  object-fit: cover;
+}
+
+/* ESTADO QUANDO NENHUMA CÂMERA ESTÁ ONLINE */
+.standby-empty-state {
+  position: relative;
+  z-index: 5;
+  text-align: center;
+  padding: 30px;
+  max-width: 480px;
+  background: rgba(18, 23, 34, 0.85);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+.standby-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  animation: standbyPulse 2s infinite ease-in-out;
+}
+.standby-empty-state h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.standby-empty-state p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* BARRA DE PROGRESSO DO TEMPO */
+.standby-progress-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 100;
+  transition: opacity 0.4s ease;
+}
+.standby-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #9333ea, #00d2ff, #00e676);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.8);
+  transform-origin: left center;
+  transition: width 0.1s linear;
+}
+
+/* HUD / PAINEL SUPERIOR */
+.standby-hud {
+  position: relative;
+  z-index: 20;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, rgba(10, 13, 20, 0.88) 0%, rgba(10, 13, 20, 0) 100%);
+  backdrop-filter: blur(6px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.standby-hud-top {
+  gap: 16px;
+}
+
+.standby-cam-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+}
+.standby-live-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 10px var(--accent-emerald);
+  animation: standbyPulse 1.6s infinite ease-in-out;
+  flex-shrink: 0;
+}
+@keyframes standbyPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.5; }
+}
+
+.standby-cam-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.standby-cam-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#standbyCamName {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+.standby-brand-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 210, 255, 0.2);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 210, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.standby-cam-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-emerald);
+  letter-spacing: 0.3px;
+}
+
+/* RELÓGIO DIGITAL DE STANDBY (IDEAL PARA TABLETS / TVS) */
+.standby-clock-box {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.standby-clock {
+  font-size: clamp(22px, 3.8vw, 36px);
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
+  line-height: 1;
+}
+.standby-date {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: capitalize;
+  margin-top: 4px;
+}
+
+.standby-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  min-width: 200px;
+}
+.standby-badge-random {
+  font-size: 11px;
+  font-weight: 700;
+  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+.standby-exit-btn {
+  background: rgba(255, 51, 102, 0.2);
+  border: 1px solid rgba(255, 51, 102, 0.5);
+  color: #ff809f;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.standby-exit-btn:hover {
+  background: rgba(255, 51, 102, 0.45);
+  border-color: rgba(255, 51, 102, 0.9);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.4);
+}
+
+/* HUD / PAINEL INFERIOR */
+.standby-hud-bottom {
+  background: linear-gradient(0deg, rgba(10, 13, 20, 0.92) 0%, rgba(10, 13, 20, 0) 100%);
+  padding: 18px 24px;
+}
+.standby-hud-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.standby-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.standby-ctrl-btn {
+  background: rgba(24, 32, 48, 0.85);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.standby-ctrl-btn:hover {
+  background: var(--border-color);
+  color: #ffffff;
+  border-color: var(--accent-cyan);
+}
+
+.standby-timer-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(24, 32, 48, 0.85);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.standby-timer-selector select {
+  background: transparent;
+  color: var(--accent-cyan);
+  border: none;
+  font-weight: 700;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.standby-timer-selector select option {
+  background: #121722;
+  color: #fff;
+}
+
+.standby-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  flex: 1;
+}
+
+/* AUTO-HIDE EM MODO IDLE (INATIVIDADE) */
+.standby-overlay.idle .standby-hud {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+}
+.standby-overlay.idle .standby-hud-bottom {
+  transform: translateY(10px);
+}
+.standby-overlay.idle .standby-progress-track {
+  opacity: 0.35;
+}
+
+/* RESPONSIVIDADE STANDBY PARA SMARTPHONE E TABLET */
+@media (max-width: 768px) {
+  .standby-hud {
+    padding: 10px 14px;
+  }
+  .standby-cam-info {
+    min-width: auto;
+  }
+  #standbyCamName {
+    font-size: 13px;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .standby-clock {
+    font-size: 20px;
+  }
+  .standby-date {
+    display: none;
+  }
+  .standby-top-actions {
+    min-width: auto;
+  }
+  .standby-badge-random {
+    display: none;
+  }
+  .standby-hud-bottom {
+    justify-content: center;
+  }
+  .standby-hud-status, .standby-hint {
+    display: none;
+  }
+  .standby-btn .standby-text {
+    display: none;
+  }
+}

@@ -316,6 +316,13 @@ function updateSystemStats(sys) {
 function updateCameraStatuses(statuses) {
   if (!statuses) return;
   statuses.forEach((st) => {
+    if (window.cameras) {
+      const cam = window.cameras.find((c) => c.id === st.id);
+      if (cam) {
+        cam.status = st.status;
+        cam.fps = st.fps;
+      }
+    }
     const cell = document.querySelector(`.camera-cell[data-id="${st.id}"]`);
     if (cell) {
       const indicator = cell.querySelector(".status-indicator");
@@ -328,6 +335,10 @@ function updateCameraStatuses(statuses) {
       }
     }
   });
+
+  if (typeof onStandbyStatusUpdated === "function") {
+    onStandbyStatusUpdated();
+  }
 }
 
 function renderGrid() {
@@ -675,4 +686,413 @@ function getFormData() {
 function escapeHtml(str) {
   if (!str) return "";
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ========================================================
+// MODO STANDBY (PATRULHA EM TELA CHEIA ALEATÓRIA)
+// ========================================================
+
+let isStandbyActive = false;
+let isStandbyPaused = false;
+let standbyIntervalSec = 8;
+let standbyTimerRemaining = 8;
+let standbyTimerInterval = null;
+let standbyCurrentCamId = null;
+let standbyHistory = [];
+let standbyActiveLayer = "A"; // 'A' ou 'B' para transição cross-fade suave
+let standbyIdleTimeout = null;
+let standbyClockInterval = null;
+let standbyFitMode = "contain"; // 'contain' ou 'cover'
+
+function toggleStandbyMode() {
+  if (isStandbyActive) {
+    exitStandbyMode();
+  } else {
+    enterStandbyMode();
+  }
+}
+
+function getFunctioningCameras() {
+  if (!window.cameras || window.cameras.length === 0) return [];
+  // Filtra câmeras com status ONLINE (funcionando)
+  const functioning = window.cameras.filter((c) => c.status === "ONLINE");
+  // Se ainda não houve polling de status inicial, considera câmeras não marcadas como offline
+  if (functioning.length === 0) {
+    const unconfirmed = window.cameras.filter((c) => c.status !== "OFFLINE" && c.status !== "ERROR");
+    return unconfirmed;
+  }
+  return functioning;
+}
+
+async function enterStandbyMode() {
+  const overlay = document.getElementById("standbyOverlay");
+  const btn = document.getElementById("standbyBtn");
+  if (!overlay) return;
+
+  isStandbyActive = true;
+  isStandbyPaused = false;
+  standbyHistory = [];
+  
+  if (btn) btn.classList.add("active");
+  overlay.style.display = "flex";
+  overlay.classList.remove("idle", "cursor-hidden");
+
+  // Requisita tela cheia no navegador (ideal para tablets e TVs)
+  try {
+    if (!document.fullscreenElement) {
+      if (overlay.requestFullscreen) {
+        await overlay.requestFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    }
+  } catch (err) {}
+
+  // Inicializa o relógio digital
+  startStandbyClock();
+
+  // Configura os detectores de inatividade para auto-hide do HUD
+  setupStandbyInactivityHandlers();
+
+  // Escuta tecla ESC e saída de fullscreen
+  document.addEventListener("keydown", handleStandbyKeyDown);
+  document.addEventListener("fullscreenchange", handleStandbyFullscreenChange);
+
+  // Inicializa a primeira câmera aleatória
+  switchStandbyCamera(true);
+}
+
+function exitStandbyMode() {
+  const overlay = document.getElementById("standbyOverlay");
+  const btn = document.getElementById("standbyBtn");
+  
+  isStandbyActive = false;
+  isStandbyPaused = false;
+  
+  if (btn) btn.classList.remove("active");
+  if (overlay) {
+    overlay.style.display = "none";
+    overlay.classList.remove("idle", "cursor-hidden");
+  }
+
+  // Limpa timers
+  clearInterval(standbyTimerInterval);
+  clearInterval(standbyClockInterval);
+  clearTimeout(standbyIdleTimeout);
+
+  // Para os streams das imagens para não consumir sockets/banda
+  const imgA = document.getElementById("standbyImgA");
+  const imgB = document.getElementById("standbyImgB");
+  if (imgA) imgA.src = "";
+  if (imgB) imgB.src = "";
+
+  // Remove listeners
+  document.removeEventListener("keydown", handleStandbyKeyDown);
+  document.removeEventListener("fullscreenchange", handleStandbyFullscreenChange);
+
+  // Sai da tela cheia se ainda estiver ativo
+  if (document.fullscreenElement) {
+    try {
+      document.exitFullscreen().catch(() => {});
+    } catch (e) {}
+  }
+}
+
+function handleStandbyKeyDown(e) {
+  if (!isStandbyActive) return;
+  if (e.key === "Escape") {
+    exitStandbyMode();
+  } else if (e.key === "ArrowRight") {
+    nextStandbyCamera();
+  } else if (e.key === "ArrowLeft") {
+    prevStandbyCamera();
+  } else if (e.key === " " || e.key === "Spacebar") {
+    togglePauseStandby();
+  }
+}
+
+function handleStandbyFullscreenChange() {
+  if (isStandbyActive && !document.fullscreenElement) {
+    // Se o usuário saiu do modo de tela cheia (ex: apertou ESC nativo), fecha o standby
+    exitStandbyMode();
+  }
+}
+
+function setupStandbyInactivityHandlers() {
+  const overlay = document.getElementById("standbyOverlay");
+  if (!overlay) return;
+
+  const resetIdle = () => {
+    overlay.classList.remove("idle", "cursor-hidden");
+    clearTimeout(standbyIdleTimeout);
+    if (isStandbyActive) {
+      standbyIdleTimeout = setTimeout(() => {
+        if (isStandbyActive) {
+          overlay.classList.add("idle", "cursor-hidden");
+        }
+      }, 3500);
+    }
+  };
+
+  overlay.addEventListener("mousemove", resetIdle);
+  overlay.addEventListener("touchstart", resetIdle, { passive: true });
+  overlay.addEventListener("click", resetIdle);
+  resetIdle();
+}
+
+function startStandbyClock() {
+  const clockEl = document.getElementById("standbyClock");
+  const dateEl = document.getElementById("standbyDate");
+
+  const update = () => {
+    const now = new Date();
+    if (clockEl) {
+      clockEl.textContent = now.toLocaleTimeString("pt-BR", { hour12: false });
+    }
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long"
+      });
+    }
+  };
+
+  update();
+  clearInterval(standbyClockInterval);
+  standbyClockInterval = setInterval(update, 1000);
+}
+
+function pickRandomFunctioningCamera(excludeId = null) {
+  const cams = getFunctioningCameras();
+  if (cams.length === 0) return null;
+  if (cams.length === 1) return cams[0];
+
+  // Filtra câmeras excluindo a atual para não repetir duas vezes seguidas
+  const candidates = excludeId ? cams.filter((c) => c.id !== excludeId) : cams;
+  const pool = candidates.length > 0 ? candidates : cams;
+  const randomIndex = Math.floor(Math.random() * pool.length);
+  return pool[randomIndex];
+}
+
+function switchStandbyCamera(isInitial = false) {
+  const functioningCams = getFunctioningCameras();
+  const emptyState = document.getElementById("standbyEmptyState");
+  const counterEl = document.getElementById("standbyCamsCounter");
+  const imgA = document.getElementById("standbyImgA");
+  const imgB = document.getElementById("standbyImgB");
+
+  if (counterEl) {
+    counterEl.textContent = `${functioningCams.length} Câmera(s) Online em Rotação`;
+  }
+
+  if (functioningCams.length === 0) {
+    if (emptyState) emptyState.style.display = "block";
+    if (imgA) imgA.style.display = "none";
+    if (imgB) imgB.style.display = "none";
+    standbyCurrentCamId = null;
+    resetStandbyTimer();
+    return;
+  }
+
+  if (emptyState) emptyState.style.display = "none";
+  if (imgA) imgA.style.display = "block";
+  if (imgB) imgB.style.display = "block";
+
+  const nextCam = pickRandomFunctioningCamera(standbyCurrentCamId);
+  if (!nextCam) return;
+
+  // Guarda histórico para o botão "Anterior"
+  if (standbyCurrentCamId && standbyCurrentCamId !== nextCam.id) {
+    standbyHistory.push(standbyCurrentCamId);
+    if (standbyHistory.length > 20) standbyHistory.shift();
+  }
+
+  standbyCurrentCamId = nextCam.id;
+  updateStandbyHud(nextCam);
+
+  // Transição Cross-Fade suave entre Cam A e Cam B
+  const baseUrl = getStreamBaseUrl();
+  const streamUrl = `${baseUrl}/api/stream/${nextCam.id}?standby=${Date.now()}`;
+
+  const incomingImg = standbyActiveLayer === "A" ? imgB : imgA;
+  const outgoingImg = standbyActiveLayer === "A" ? imgA : imgB;
+
+  if (incomingImg && outgoingImg) {
+    incomingImg.src = streamUrl;
+    incomingImg.onload = () => {
+      incomingImg.classList.add("active");
+      outgoingImg.classList.remove("active");
+      standbyActiveLayer = standbyActiveLayer === "A" ? "B" : "A";
+      // Desconecta o stream anterior após transição para economizar conexões
+      setTimeout(() => {
+        if (!outgoingImg.classList.contains("active")) {
+          outgoingImg.src = "";
+        }
+      }, 550);
+    };
+
+    // Fallback se onload demorar para disparar com MJPEG
+    setTimeout(() => {
+      if (!incomingImg.classList.contains("active")) {
+        incomingImg.classList.add("active");
+        outgoingImg.classList.remove("active");
+        standbyActiveLayer = standbyActiveLayer === "A" ? "B" : "A";
+        setTimeout(() => {
+          if (!outgoingImg.classList.contains("active")) {
+            outgoingImg.src = "";
+          }
+        }, 550);
+      }
+    }, 250);
+  }
+
+  resetStandbyTimer();
+}
+
+function updateStandbyHud(cam) {
+  if (!cam) return;
+  const nameEl = document.getElementById("standbyCamName");
+  const brandEl = document.getElementById("standbyBrandPill");
+  const metaEl = document.getElementById("standbyCamMeta");
+
+  if (nameEl) nameEl.textContent = cam.name || "Câmera";
+  if (brandEl) brandEl.textContent = (cam.brand || "RTSP").toUpperCase();
+  if (metaEl) {
+    metaEl.textContent = `AO VIVO • ${cam.fps || 0} FPS`;
+  }
+}
+
+function onStandbyStatusUpdated() {
+  if (!isStandbyActive) return;
+
+  const functioningCams = getFunctioningCameras();
+  const counterEl = document.getElementById("standbyCamsCounter");
+  if (counterEl) {
+    counterEl.textContent = `${functioningCams.length} Câmera(s) Online em Rotação`;
+  }
+
+  // Se a câmera atualmente exibida caiu (ficou OFFLINE ou sumiu do status), avança imediatamente
+  if (standbyCurrentCamId) {
+    const currentCam = window.cameras.find((c) => c.id === standbyCurrentCamId);
+    if (!currentCam || currentCam.status !== "ONLINE") {
+      console.log("[Standby] Câmera atual perdeu sinal. Avançando para próxima ativa...");
+      switchStandbyCamera();
+      return;
+    }
+    // Atualiza FPS dinâmico no HUD
+    const metaEl = document.getElementById("standbyCamMeta");
+    if (metaEl) {
+      metaEl.textContent = `AO VIVO • ${currentCam.fps || 0} FPS`;
+    }
+  } else if (functioningCams.length > 0) {
+    // Estava sem câmeras e alguma voltou a ficar online
+    switchStandbyCamera();
+  }
+}
+
+function resetStandbyTimer() {
+  clearInterval(standbyTimerInterval);
+  standbyTimerRemaining = standbyIntervalSec;
+  updateStandbyProgressBar(100);
+
+  if (isStandbyPaused) return;
+
+  const stepMs = 100;
+  const totalSteps = (standbyIntervalSec * 1000) / stepMs;
+  let currentStep = totalSteps;
+
+  standbyTimerInterval = setInterval(() => {
+    if (!isStandbyActive || isStandbyPaused) return;
+
+    currentStep--;
+    const percent = Math.max(0, (currentStep / totalSteps) * 100);
+    updateStandbyProgressBar(percent);
+
+    if (currentStep <= 0) {
+      clearInterval(standbyTimerInterval);
+      switchStandbyCamera();
+    }
+  }, stepMs);
+}
+
+function updateStandbyProgressBar(percent) {
+  const bar = document.getElementById("standbyProgressBar");
+  if (bar) {
+    bar.style.width = `${percent}%`;
+  }
+}
+
+function nextStandbyCamera() {
+  switchStandbyCamera();
+}
+
+function prevStandbyCamera() {
+  if (standbyHistory.length === 0) {
+    switchStandbyCamera();
+    return;
+  }
+  const prevId = standbyHistory.pop();
+  const prevCam = window.cameras.find((c) => c.id === prevId && c.status === "ONLINE");
+  if (!prevCam) {
+    switchStandbyCamera();
+    return;
+  }
+
+  standbyCurrentCamId = prevCam.id;
+  updateStandbyHud(prevCam);
+
+  const baseUrl = getStreamBaseUrl();
+  const streamUrl = `${baseUrl}/api/stream/${prevCam.id}?standby=${Date.now()}`;
+  const imgA = document.getElementById("standbyImgA");
+  const imgB = document.getElementById("standbyImgB");
+
+  const incomingImg = standbyActiveLayer === "A" ? imgB : imgA;
+  const outgoingImg = standbyActiveLayer === "A" ? imgA : imgB;
+
+  if (incomingImg && outgoingImg) {
+    incomingImg.src = streamUrl;
+    incomingImg.classList.add("active");
+    outgoingImg.classList.remove("active");
+    standbyActiveLayer = standbyActiveLayer === "A" ? "B" : "A";
+    setTimeout(() => {
+      outgoingImg.src = "";
+    }, 550);
+  }
+
+  resetStandbyTimer();
+}
+
+function togglePauseStandby() {
+  isStandbyPaused = !isStandbyPaused;
+  const btn = document.getElementById("standbyPauseBtn");
+  if (btn) {
+    btn.textContent = isStandbyPaused ? "▶" : "⏸";
+    btn.title = isStandbyPaused ? "Retomar rotação automática" : "Pausar rotação";
+  }
+  if (!isStandbyPaused) {
+    resetStandbyTimer();
+  }
+}
+
+function changeStandbyInterval(val) {
+  const sec = parseInt(val) || 8;
+  standbyIntervalSec = sec;
+  resetStandbyTimer();
+}
+
+function toggleStandbyFit() {
+  const stage = document.getElementById("standbyStage");
+  const btn = document.getElementById("standbyFitBtn");
+  if (!stage) return;
+
+  if (standbyFitMode === "contain") {
+    standbyFitMode = "cover";
+    stage.classList.add("fit-cover");
+    if (btn) btn.textContent = "⛶ Preencher";
+  } else {
+    standbyFitMode = "contain";
+    stage.classList.remove("fit-cover");
+    if (btn) btn.textContent = "⛶ Ajustar";
+  }
 }

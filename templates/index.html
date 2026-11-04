@@ -75,6 +75,12 @@
         <button class="logout-btn" onclick="supabaseSignOut()" title="Sair da Conta">Sair</button>
       </div>
 
+      <!-- Botão Modo Standby (Patrulha em Tela Cheia) -->
+      <button class="standby-btn" id="standbyBtn" onclick="toggleStandbyMode()" title="Modo Standby: Rotação aleatória das câmeras ativas em tela cheia">
+        <span class="standby-icon">💤</span>
+        <span class="standby-text">Standby</span>
+      </button>
+
       <!-- Botão Tela Cheia -->
       <button class="action-icon-btn" onclick="toggleFullscreen()" title="Tela Cheia">⛶</button>
 
@@ -256,6 +262,89 @@
             💾 Conectar Hub
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY DO MODO STANDBY (FULLSCREEN ROTATIVO ALEATÓRIO) -->
+  <div id="standbyOverlay" class="standby-overlay" style="display: none;">
+    <!-- Palco das câmeras com suporte a crossfade -->
+    <div class="standby-stage" id="standbyStage">
+      <img id="standbyImgA" class="standby-feed-img active" alt="Câmera Standby A">
+      <img id="standbyImgB" class="standby-feed-img" alt="Câmera Standby B">
+      
+      <!-- Mensagem quando não houver câmeras online -->
+      <div id="standbyEmptyState" class="standby-empty-state" style="display: none;">
+        <div class="standby-empty-icon">📡</div>
+        <h2>Buscando Câmeras Ativas</h2>
+        <p id="standbyEmptyMsg">Nenhuma câmera com sinal online detectada no momento. Aguardando sinal...</p>
+        <button class="btn-secondary" onclick="exitStandbyMode()" style="margin-top: 15px;">✕ Sair do Standby</button>
+      </div>
+    </div>
+
+    <!-- Barra de Progresso do Tempo de Troca -->
+    <div class="standby-progress-track">
+      <div id="standbyProgressBar" class="standby-progress-bar"></div>
+    </div>
+
+    <!-- HUD SUPERIOR (Cabeçalho do Standby) -->
+    <div class="standby-hud standby-hud-top">
+      <div class="standby-cam-info">
+        <span class="standby-live-pulse"></span>
+        <div class="standby-cam-text">
+          <div class="standby-cam-title">
+            <span id="standbyCamName">Câmera</span>
+            <span class="standby-brand-pill" id="standbyBrandPill">RTSP</span>
+          </div>
+          <div class="standby-cam-meta" id="standbyCamMeta">AO VIVO • -- FPS</div>
+        </div>
+      </div>
+
+      <!-- Relógio Digital Grande para Tablet / TV -->
+      <div class="standby-clock-box">
+        <div id="standbyClock" class="standby-clock">00:00:00</div>
+        <div id="standbyDate" class="standby-date">Carregando data...</div>
+      </div>
+
+      <div class="standby-top-actions">
+        <div class="standby-badge-random" title="Modo Standby ativo com seleção randômica de câmeras">
+          🎲 STANDBY ALEATÓRIO
+        </div>
+        <button class="standby-exit-btn" id="standbyExitBtn" onclick="exitStandbyMode()" title="Sair do Modo Standby (ESC)">
+          <span>✕</span> Sair
+        </button>
+      </div>
+    </div>
+
+    <!-- HUD INFERIOR (Controles Rápidos do Standby) -->
+    <div class="standby-hud standby-hud-bottom">
+      <div class="standby-hud-status" id="standbyCamsCounter">
+        3 Câmeras Online em Rotação
+      </div>
+
+      <div class="standby-controls">
+        <button class="standby-ctrl-btn" onclick="prevStandbyCamera()" title="Câmera Anterior">⏮</button>
+        <button class="standby-ctrl-btn" id="standbyPauseBtn" onclick="togglePauseStandby()" title="Pausar / Retomar rotação">⏸</button>
+        <button class="standby-ctrl-btn" onclick="nextStandbyCamera()" title="Próxima Câmera Aleatória">⏭</button>
+        
+        <div class="standby-timer-selector" title="Tempo de exibição de cada câmera">
+          <span>Tempo:</span>
+          <select id="standbyIntervalSelect" onchange="changeStandbyInterval(this.value)">
+            <option value="5">5s</option>
+            <option value="8" selected>8s</option>
+            <option value="12">12s</option>
+            <option value="20">20s</option>
+            <option value="30">30s</option>
+          </select>
+        </div>
+
+        <button class="standby-ctrl-btn" id="standbyFitBtn" onclick="toggleStandbyFit()" title="Alternar entre Ajustar na Tela ou Preencher">
+          ⛶ Ajustar
+        </button>
+      </div>
+
+      <div class="standby-hint">
+        Toque na tela para controles • ESC para sair
       </div>
     </div>
   </div>
