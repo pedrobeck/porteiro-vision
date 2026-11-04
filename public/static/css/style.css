@@ -190,6 +190,37 @@ html, body {
   box-shadow: 0 0 8px rgba(255, 68, 68, 0.7);
 }
 
+/* TELEMETRIA DO SISTEMA (CPU, RAM, REDE) */
+.system-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  user-select: none;
+}
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+.stat-pill strong {
+  color: var(--text-light);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
+}
+.stat-pill.warn strong {
+  color: #ffaa00;
+}
+.stat-pill.danger strong {
+  color: var(--accent-danger);
+}
+
 /* USER PROFILE PILL */
 .user-profile-pill {
   display: flex;

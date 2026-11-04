@@ -13,6 +13,11 @@ from storage import load_cameras, save_cameras, add_camera, update_camera, delet
 from camera_manager import manager
 from dvrip_client import DVRIPClient
 
+try:
+    from system_monitor import monitor as system_monitor
+except Exception:
+    system_monitor = None
+
 # Carrega .env se existir
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -243,9 +248,11 @@ def api_ptz_control(cam_id):
 
 @app.route("/api/status")
 def api_status():
+    stats = system_monitor.get_stats() if system_monitor else None
     return jsonify({
         "server_ip": LOCAL_IP,
-        "cameras": manager.get_all_status()
+        "cameras": manager.get_all_status(),
+        "system": stats
     })
 
 if __name__ == "__main__":

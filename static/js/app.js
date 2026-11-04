@@ -265,15 +265,52 @@ async function loadCameras() {
 }
 
 function startStatusPolling() {
-  pollInterval = setInterval(async () => {
+  const fetchStatus = async () => {
     try {
       const baseUrl = getStreamBaseUrl();
       if (!isLocalEnvironment() && !isHubOnline) return;
       const res = await fetch(`${baseUrl}/api/status`, { mode: "cors" });
       const data = await res.json();
       updateCameraStatuses(data.cameras);
+      if (data.system) {
+        updateSystemStats(data.system);
+      }
     } catch (err) {}
-  }, 4000);
+  };
+
+  fetchStatus();
+  pollInterval = setInterval(fetchStatus, 3000);
+}
+
+function updateSystemStats(sys) {
+  if (!sys) return;
+
+  const statCpu = document.getElementById("statCpu");
+  const statRam = document.getElementById("statRam");
+  const statNet = document.getElementById("statNet");
+  const pillCpu = document.getElementById("pillCpu");
+  const pillRam = document.getElementById("pillRam");
+
+  if (statCpu && sys.cpu_percent !== undefined) {
+    statCpu.textContent = `${sys.cpu_percent}%`;
+    if (pillCpu) {
+      pillCpu.className = sys.cpu_percent >= 85 ? "stat-pill danger" : (sys.cpu_percent >= 70 ? "stat-pill warn" : "stat-pill");
+    }
+  }
+
+  if (statRam && sys.ram_percent !== undefined) {
+    const used = sys.ram_used_gb ? `${sys.ram_used_gb}G` : "";
+    statRam.textContent = used ? `${sys.ram_percent}% (${used})` : `${sys.ram_percent}%`;
+    if (pillRam) {
+      pillRam.className = sys.ram_percent >= 90 ? "stat-pill danger" : (sys.ram_percent >= 80 ? "stat-pill warn" : "stat-pill");
+    }
+  }
+
+  if (statNet) {
+    const down = sys.net_down_str || "0 KB/s";
+    const up = sys.net_up_str || "0 KB/s";
+    statNet.textContent = `↓ ${down} / ↑ ${up}`;
+  }
 }
 
 function updateCameraStatuses(statuses) {

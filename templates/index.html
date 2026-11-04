@@ -49,6 +49,25 @@
         <span id="hubStatusText">Hub: Desconectado</span>
       </div>
 
+      <!-- Telemetria do Sistema (CPU, RAM, Internet) -->
+      <div class="system-stats-bar" id="systemStatsBar" title="Telemetria em Tempo Real do Servidor">
+        <div class="stat-pill" id="pillCpu" title="Consumo de CPU">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-label">CPU:</span>
+          <strong id="statCpu">--%</strong>
+        </div>
+        <div class="stat-pill" id="pillRam" title="Consumo de Memória RAM">
+          <span class="stat-icon">🧠</span>
+          <span class="stat-label">RAM:</span>
+          <strong id="statRam">--%</strong>
+        </div>
+        <div class="stat-pill" id="pillNet" title="Taxa de Consumo de Rede / Internet">
+          <span class="stat-icon">🌐</span>
+          <span class="stat-label">Rede:</span>
+          <strong id="statNet">↓ -- / ↑ --</strong>
+        </div>
+      </div>
+
       <!-- Usuário Supabase Autenticado -->
       <div id="userProfilePill" class="user-profile-pill" style="display: none;">
         <span class="user-avatar">👤</span>
