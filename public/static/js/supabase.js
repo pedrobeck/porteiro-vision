@@ -123,9 +123,11 @@ async function loadCamerasFromSupabase() {
 
     if (error) throw error;
     if (data && data.length > 0) {
-      // Atualiza câmeras na interface
-      window.cameras = data;
-      renderGrid();
+      // Se não temos câmeras locais carregadas ou o hub está offline, usa as da nuvem
+      if (!window.cameras || window.cameras.length === 0) {
+        window.cameras = data;
+        renderGrid();
+      }
     }
   } catch (err) {
     console.warn("[Supabase] Não foi possível carregar câmeras da nuvem:", err.message);

@@ -45,8 +45,11 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     return response
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+DEFAULT_SUPABASE_URL = "https://ravhvhqvvajobgciudsh.supabase.co"
+DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdmh2aHF2dmFqb2JnY2l1ZHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MDU4NTgsImV4cCI6MjEwOTI4MTg1OH0.-8njNYlFg3VcSnEqsb3TZWra5T-hTrakkJvkYPaxL0g"
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or DEFAULT_SUPABASE_URL
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or DEFAULT_SUPABASE_ANON_KEY
 
 @app.route("/static/<path:filename>")
 def serve_static(filename):

@@ -7,10 +7,9 @@ let pollInterval = null;
 let currentAuthMode = "login"; // 'login' ou 'register'
 let isHubOnline = false;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   initLayoutControls();
   initModal();
-  initHubStatus();
   
   // Inicializa o Supabase (usa chaves salvas ou variáveis padrão)
   const isSbReady = initSupabase();
@@ -18,7 +17,10 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("[Supabase] Aguardando configuração de credenciais no modal.");
   }
 
-  loadCameras();
+  // Conecta ao Hub e sincroniza túnel na nuvem antes de buscar câmeras
+  await initHubStatus();
+
+  await loadCameras();
   startStatusPolling();
   registerPWA();
 });
@@ -104,7 +106,7 @@ async function autoSyncHubFromSupabase() {
           if (hubText) hubText.textContent = "Hub Online (Auto)";
           
           if (!wasOnline || previousUrl !== liveTunnel) {
-            renderGrid();
+            await loadCameras();
           }
           return true;
         }
@@ -258,8 +260,14 @@ async function loadCameras() {
   try {
     const baseUrl = getStreamBaseUrl();
     const res = await fetch(`${baseUrl}/api/cameras`);
-    window.cameras = await res.json();
-    renderGrid();
+    const data = await res.json();
+    if (data && Array.isArray(data) && data.length > 0) {
+      window.cameras = data;
+      renderGrid();
+    } else if (!window.cameras || window.cameras.length === 0) {
+      window.cameras = data || [];
+      renderGrid();
+    }
   } catch (err) {
     console.error("Erro ao carregar câmeras:", err);
   }
@@ -272,14 +280,17 @@ function startStatusPolling() {
       if (!isLocalEnvironment() && !isHubOnline) return;
       const res = await fetch(`${baseUrl}/api/status`, { mode: "cors" });
       const data = await res.json();
-      updateCameraStatuses(data.cameras);
-      if (data.system) {
+      if (data && data.cameras) {
+        updateCameraStatuses(data.cameras);
+      }
+      if (data && data.system) {
         updateSystemStats(data.system);
       }
     } catch (err) {}
   };
 
   fetchStatus();
+  if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(fetchStatus, 3000);
 }
 
