@@ -103,13 +103,43 @@ def api_motion_status():
 @app.route("/api/cameras", methods=["GET"])
 def api_list_cameras():
     cameras = load_cameras()
-    status_map = {s["id"]: s for s in manager.get_all_status()}
+    expanded = []
     for c in cameras:
+        expanded.append(c)
+        if c.get("multi_lens") and c.get("brand") == "icsee":
+            for sub_idx in (1, 2):
+                expanded.append({
+                    "id": f"{c['id']}_sub{sub_idx}",
+                    "parent_id": c["id"],
+                    "name": f"{c['name']} (Fixa {sub_idx})",
+                    "host": c.get("host"),
+                    "port": 8554,
+                    "brand": "icsee",
+                    "protocol": "rtsp",
+                    "ptz_enabled": False,
+                    "is_sub_lens": True,
+                    "order": c.get("order", 0) + sub_idx * 0.1
+                })
+    status_map = {s["id"]: s for s in manager.get_all_status()}
+    for c in expanded:
         st = status_map.get(c["id"], {})
         c["status"] = st.get("status", "OFFLINE")
         c["fps"] = st.get("fps", 0.0)
         c["last_seen"] = st.get("last_seen")
-    return jsonify(cameras)
+    return jsonify(expanded)
+
+@app.route("/api/cameras/<cam_id>/toggle_multilens", methods=["POST"])
+def api_toggle_multilens(cam_id):
+    cam = get_camera(cam_id)
+    if not cam:
+        return jsonify({"error": "Câmera não encontrada"}), 404
+    
+    current_state = bool(cam.get("multi_lens", False))
+    new_state = not current_state
+    updated = update_camera(cam_id, {"multi_lens": new_state})
+    if updated:
+        manager.start_worker(updated, restart_main=False)
+    return jsonify({"success": True, "multi_lens": new_state})
 
 @app.route("/api/cameras", methods=["POST"])
 def api_add_camera():

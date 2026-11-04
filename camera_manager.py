@@ -14,6 +14,7 @@ import os
 import subprocess
 from datetime import datetime
 from storage import load_cameras, build_rtsp_url
+from go2rtc_manager import start_go2rtc, stop_go2rtc
 
 class CameraWorker:
     def __init__(self, camera):
@@ -364,27 +365,64 @@ class CameraManager:
 
     def start_all(self):
         cameras = load_cameras()
+        # Inicializa go2rtc se alguma câmera usar multi-lente
+        if any(c.get("multi_lens") for c in cameras):
+            start_go2rtc(cameras)
+
         print(f"[CameraManager] Iniciando {len(cameras)} câmeras cadastradas...")
         for cam in cameras:
             self.start_worker(cam)
 
-    def start_worker(self, camera):
+    def start_worker(self, camera, restart_main=True):
         cam_id = camera["id"]
         with self.lock:
-            if cam_id in self.workers:
-                self.workers[cam_id].stop()
-            worker = CameraWorker(camera)
-            worker.start()
-            self.workers[cam_id] = worker
+            if restart_main or (cam_id not in self.workers) or (not self.workers[cam_id].running):
+                if cam_id in self.workers:
+                    self.workers[cam_id].stop()
+                worker = CameraWorker(camera)
+                worker.start()
+                self.workers[cam_id] = worker
+
+            # Se multi_lens estiver ativo, inicia as duas sub-lentes fixas via go2rtc
+            if camera.get("multi_lens") and camera.get("brand") == "icsee":
+                cameras = load_cameras()
+                start_go2rtc(cameras)
+
+                for sub_idx in (1, 2):
+                    sub_id = f"{cam_id}_sub{sub_idx}"
+                    if sub_id not in self.workers or not self.workers[sub_id].running:
+                        if sub_id in self.workers:
+                            self.workers[sub_id].stop()
+
+                        sub_cam = {
+                            "id": sub_id,
+                            "name": f"{camera['name']} (Fixa {sub_idx})",
+                            "brand": "generic",
+                            "host": "127.0.0.1",
+                            "port": 8554,
+                            "custom_url": f"rtsp://127.0.0.1:8554/{cam_id}_ch{sub_idx}",
+                            "stream_type": "main"
+                        }
+                        sub_worker = CameraWorker(sub_cam)
+                        sub_worker.start()
+                        self.workers[sub_id] = sub_worker
+            else:
+                # Se desativou multi_lens, encerra as sub-lentes se estavam rodando
+                for sub_idx in (1, 2):
+                    sub_id = f"{cam_id}_sub{sub_idx}"
+                    if sub_id in self.workers:
+                        self.workers[sub_id].stop()
+                        del self.workers[sub_id]
 
     def stop_worker(self, cam_id):
         with self.lock:
-            if cam_id in self.workers:
-                self.workers[cam_id].stop()
-                del self.workers[cam_id]
+            for cid in [cam_id, f"{cam_id}_sub1", f"{cam_id}_sub2"]:
+                if cid in self.workers:
+                    self.workers[cid].stop()
+                    del self.workers[cid]
 
     def restart_worker(self, camera):
-        self.start_worker(camera)
+        self.start_worker(camera, restart_main=True)
 
     def get_worker(self, cam_id):
         with self.lock:
@@ -431,6 +469,27 @@ class CameraManager:
                     "last_motion": round(last_m, 2),
                     "last_seen": w.last_seen.strftime("%H:%M:%S") if (w and w.last_seen) else None
                 })
+
+                # Se multi-lente estiver ativo, inclui as duas sub-lentes fixas
+                if cam.get("multi_lens") and cam.get("brand") == "icsee":
+                    for sub_idx in (1, 2):
+                        sub_id = f"{cid}_sub{sub_idx}"
+                        sw = self.workers.get(sub_id)
+                        sw_m = getattr(sw, "motion_detected", False) if sw else False
+                        sw_last_m = getattr(sw, "last_motion_time", 0.0) if sw else 0.0
+                        if now_ts - sw_last_m >= 3.0:
+                            sw_m = False
+                        status_list.append({
+                            "id": sub_id,
+                            "name": f"{cam['name']} (Fixa {sub_idx})",
+                            "host": "127.0.0.1",
+                            "brand": "icsee",
+                            "status": sw.status if sw else "STOPPED",
+                            "fps": sw.fps if sw else 0.0,
+                            "motion": sw_m,
+                            "last_motion": round(sw_last_m, 2),
+                            "last_seen": sw.last_seen.strftime("%H:%M:%S") if (sw and sw.last_seen) else None
+                        })
         return status_list
 
     def generate_mjpeg(self, cam_id):

@@ -467,6 +467,21 @@ html, body {
   transform: scale(0.92);
 }
 
+.action-icon-btn.btn-multilens {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.action-icon-btn.active-multilens {
+  background: rgba(0, 242, 254, 0.18);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
+}
+
 /* PTZ FLOATING JOYSTICK OVERLAY */
 .ptz-joystick {
   position: absolute;

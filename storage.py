@@ -61,6 +61,7 @@ def add_camera(cam_data):
         "stream_type": cam_data.get("stream_type", "sub"), # 'sub' é mais leve para telas múltiplas
         "custom_url": cam_data.get("custom_url", "").strip(),
         "ptz_enabled": bool(cam_data.get("ptz_enabled", False)),
+        "multi_lens": bool(cam_data.get("multi_lens", False)),
         "order": len(cameras),
         "created_at": datetime.now().isoformat()
     }
@@ -73,7 +74,7 @@ def update_camera(cam_id, cam_data):
     for idx, c in enumerate(cameras):
         if c["id"] == cam_id:
             for k in ["name", "host", "port", "protocol", "brand", "username", "password", 
-                      "channel", "stream_type", "custom_url", "ptz_enabled", "order"]:
+                      "channel", "stream_type", "custom_url", "ptz_enabled", "multi_lens", "order"]:
                 if k in cam_data:
                     c[k] = cam_data[k]
             if not cam_data.get("custom_url"):
@@ -96,6 +97,32 @@ def get_camera(cam_id):
     for c in cameras:
         if c.get("id") == cam_id or c.get("host") == cam_id:
             return c
+            
+    # Suporte a sub-lentes virtuais (ex: camId_sub1 ou camId_sub2)
+    if isinstance(cam_id, str) and ("_sub1" in cam_id or "_sub2" in cam_id):
+        parent_id = cam_id.rsplit("_", 1)[0]
+        parent = get_camera(parent_id)
+        if parent:
+            sub_idx = 1 if cam_id.endswith("_sub1") else 2
+            sub_label = "Fixa 1" if sub_idx == 1 else "Fixa 2"
+            return {
+                "id": cam_id,
+                "parent_id": parent["id"],
+                "name": f"{parent['name']} ({sub_label})",
+                "host": "127.0.0.1",
+                "port": 8554,
+                "brand": "generic",
+                "protocol": "rtsp",
+                "username": "",
+                "password": "",
+                "channel": sub_idx,
+                "stream_type": "main",
+                "custom_url": f"rtsp://127.0.0.1:8554/{parent['id']}_ch{sub_idx}",
+                "ptz_enabled": False,
+                "multi_lens": False,
+                "order": parent.get("order", 0) + sub_idx * 0.1,
+                "created_at": parent.get("created_at", "")
+            }
     return None
 
 def build_rtsp_url(camera, stream_type_override=None):

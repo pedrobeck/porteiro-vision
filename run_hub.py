@@ -258,6 +258,11 @@ def main():
                 bridge_proc.terminate()
             except Exception:
                 pass
+        try:
+            from go2rtc_manager import stop_go2rtc
+            stop_go2rtc()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()

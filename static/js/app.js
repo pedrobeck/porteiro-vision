@@ -393,23 +393,37 @@ function renderGrid() {
       `;
     }
 
+    const isMulti = !!cam.multi_lens;
+    const isSubLens = !!cam.is_sub_lens;
+    const multiLensBtn = (cam.brand === "icsee" && !isSubLens) ? `
+      <button class="action-icon-btn btn-multilens ${isMulti ? 'active-multilens' : ''}" 
+              title="${isMulti ? 'Clique para alternar para 1 Lente (Principal)' : 'Clique para ativar as 3 Lentes Simultâneas (Móvel + 2 Fixas)'}" 
+              onclick="toggleMultiLens('${cam.id}', event)">
+        👁️ ${isMulti ? '3 Lentes' : '1 Lente'}
+      </button>
+    ` : '';
+
     cell.innerHTML = `
       <div class="cell-header">
         <div class="cell-title-box">
           <div class="status-indicator ${cam.status ? cam.status.toLowerCase() : 'connecting'}"></div>
           <div>
-            <div class="camera-name">${escapeHtml(cam.name)}</div>
+            <div class="camera-name">
+              ${escapeHtml(cam.name)}
+              ${isSubLens ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); margin-left: 6px; font-weight: 700; vertical-align: middle;">FIXA</span>` : ''}
+            </div>
             <div class="camera-meta">${cam.status || "CONECTANDO"} | ${cam.fps || 0} FPS</div>
           </div>
         </div>
         <div class="cell-actions">
+          ${multiLensBtn}
           <button class="action-icon-btn" title="Capturar Foto" onclick="takeSnapshot('${cam.id}', event)">📸</button>
           <button class="action-icon-btn" title="Ampliar / Tela Cheia" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
-          <button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>
+          ${!isSubLens ? `<button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
       ${feedHtml}
-      ${cam.ptz_enabled ? renderPtzJoystick(cam.id) : ""}
+      ${(cam.ptz_enabled && !isSubLens) ? renderPtzJoystick(cam.id) : ""}
     `;
 
     cell.addEventListener("click", (e) => {
@@ -521,6 +535,10 @@ function initModal() {
     const brand = brandSelect.value;
     const portInput = document.getElementById("camPort");
     const userInput = document.getElementById("camUser");
+    const mlGroup = document.getElementById("groupMultiLens");
+    if (mlGroup) {
+      mlGroup.style.display = (brand === "icsee") ? "block" : "none";
+    }
     if (brand === "icsee") {
       portInput.value = 554;
       if (!userInput.value) userInput.value = "admin";
@@ -543,6 +561,10 @@ function openAddCameraModal() {
   document.getElementById("camPort").value = 554;
   document.getElementById("camChannel").value = 1;
   document.getElementById("camUser").value = "admin";
+  const mlGroup = document.getElementById("groupMultiLens");
+  if (mlGroup) mlGroup.style.display = "none";
+  const mlCheck = document.getElementById("camMultiLens");
+  if (mlCheck) mlCheck.checked = false;
   document.getElementById("testResult").className = "test-alert";
   document.getElementById("deleteCameraBtn").style.display = "none";
   document.getElementById("cameraModal").classList.add("open");
@@ -565,6 +587,15 @@ function openEditCameraModal(camId, event) {
   document.getElementById("camStreamType").value = cam.stream_type || "sub";
   document.getElementById("camCustomUrl").value = cam.custom_url || "";
   document.getElementById("camPtzEnabled").checked = !!cam.ptz_enabled;
+
+  const mlGroup = document.getElementById("groupMultiLens");
+  if (mlGroup) {
+    mlGroup.style.display = (cam.brand === "icsee") ? "block" : "none";
+  }
+  const mlCheck = document.getElementById("camMultiLens");
+  if (mlCheck) {
+    mlCheck.checked = !!cam.multi_lens;
+  }
 
   document.getElementById("testResult").className = "test-alert";
   const deleteBtn = document.getElementById("deleteCameraBtn");
@@ -679,8 +710,38 @@ function getFormData() {
     password: document.getElementById("camPassword").value,
     stream_type: document.getElementById("camStreamType").value,
     custom_url: document.getElementById("camCustomUrl").value,
-    ptz_enabled: document.getElementById("camPtzEnabled").checked
+    ptz_enabled: document.getElementById("camPtzEnabled").checked,
+    multi_lens: document.getElementById("camMultiLens") ? document.getElementById("camMultiLens").checked : false
   };
+}
+
+async function toggleMultiLens(camId, event) {
+  if (event) event.stopPropagation();
+  const btn = event?.currentTarget;
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+  }
+
+  try {
+    const baseUrl = getStreamBaseUrl();
+    const res = await fetch(`${baseUrl}/api/cameras/${camId}/toggle_multilens`, {
+      method: "POST"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      await loadCameras();
+    } else {
+      alert("Erro ao alternar lentes: " + (data.error || "Tente novamente"));
+    }
+  } catch (err) {
+    alert("Erro de conexão: " + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+    }
+  }
 }
 
 function escapeHtml(str) {

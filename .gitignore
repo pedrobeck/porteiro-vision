@@ -10,6 +10,8 @@ run_migration.py
 add_condo_cameras.py
 .vercel
 cloudflared.exe
+go2rtc.exe
+go2rtc.yaml
 *.log
 *.apk
 android/.gradle/
