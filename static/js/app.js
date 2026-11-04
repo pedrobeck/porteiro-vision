@@ -1218,7 +1218,8 @@ function openNightModeModal() {
       const opt = document.createElement("option");
       opt.value = cam.id;
       opt.textContent = `📹 ${cam.name} (${(cam.brand || "RTSP").toUpperCase()})`;
-      if (cam.name.toLowerCase().includes("garagem")) {
+      // Prioriza a câmera principal da garagem (evita selecionar acidentalmente sub-lente Fixa 2)
+      if (cam.name.toLowerCase().includes("garagem") && (!garageId || !cam.is_sub_lens)) {
         garageId = cam.id;
       }
       select.appendChild(opt);
@@ -1329,9 +1330,16 @@ function exitNightMode() {
   clearInterval(nightWakeTimer);
   clearInterval(nightClockInterval);
 
-  // Limpa stream do alerta
+  // Limpa stream e poster do alerta
   const feed = document.getElementById("nightWakeFeedImg");
-  if (feed) feed.src = "";
+  const poster = document.getElementById("nightWakePosterImg");
+  if (feed) {
+    feed.removeAttribute("src");
+    feed.dataset.camId = "";
+  }
+  if (poster) {
+    poster.removeAttribute("src");
+  }
 
   // Remove listeners
   document.removeEventListener("keydown", handleNightKeyDown);
@@ -1391,10 +1399,17 @@ function forceNightSleep() {
   const sleepView = document.getElementById("nightSleepView");
   const wakeView = document.getElementById("nightWakeView");
   const feed = document.getElementById("nightWakeFeedImg");
+  const poster = document.getElementById("nightWakePosterImg");
 
   if (sleepView) sleepView.style.display = "flex";
   if (wakeView) wakeView.style.display = "none";
-  if (feed) feed.src = "";
+  if (feed) {
+    feed.removeAttribute("src");
+    feed.dataset.camId = "";
+  }
+  if (poster) {
+    poster.removeAttribute("src");
+  }
 }
 
 function startNightMotionPolling() {
@@ -1424,6 +1439,17 @@ function startNightMotionPolling() {
         if (camData && camData.motion === true) {
           triggeredCamId = nightSelectedCamId;
           triggeredCamName = camData.name;
+        } else {
+          // Se a câmera monitorada for a pai de multi-lentes (ex: garagem), checa também as sub-lentes fixas
+          for (const subIdx of [1, 2]) {
+            const subId = `${nightSelectedCamId}_sub${subIdx}`;
+            const subData = motionData[subId];
+            if (subData && subData.motion === true) {
+              triggeredCamId = nightSelectedCamId; // Desperta na câmera principal
+              triggeredCamName = camData ? camData.name : subData.name;
+              break;
+            }
+          }
         }
       }
 
@@ -1441,27 +1467,44 @@ function triggerNightWake(camId, camName) {
   const sleepView = document.getElementById("nightSleepView");
   const wakeView = document.getElementById("nightWakeView");
   const feed = document.getElementById("nightWakeFeedImg");
+  const poster = document.getElementById("nightWakePosterImg");
   const nameEl = document.getElementById("nightAlertCamName");
 
-  if (nameEl) nameEl.textContent = (camName || "GARAGEM").toUpperCase();
-
-  // Se já estava acordado na mesma câmera, apenas reinicia a contagem
-  if (isNightAwake && feed && feed.dataset.camId === camId) {
+  // SE JÁ ESTÁ ACORDADO: renova o tempo de vigília e nunca interrompe a transmissão ativa!
+  if (isNightAwake) {
     resetNightWakeCountdown();
     return;
   }
 
   isNightAwake = true;
+  if (nameEl) nameEl.textContent = (camName || "GARAGEM").toUpperCase();
+
   if (sleepView) sleepView.style.display = "none";
   if (wakeView) wakeView.style.display = "flex";
 
-  if (feed) {
-    feed.dataset.camId = camId;
-    const baseUrl = getStreamBaseUrl();
-    feed.src = `${baseUrl}/api/stream/${camId}?wake=${Date.now()}`;
+  const baseUrl = getStreamBaseUrl();
+  const snapshotUrl = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
+  const streamUrl = `${baseUrl}/api/stream/${camId}?wake=${Date.now()}`;
+
+  // 1. Snapshot instantâneo (Renderiza em ~20ms da memória do Hub, eliminando 100% da tela preta!)
+  if (poster) {
+    poster.src = snapshotUrl;
   }
 
-  // Toca alerta sonoro se habilitado
+  // 2. Conecta stream de vídeo contínuo MJPEG no topo
+  if (feed) {
+    feed.dataset.camId = camId;
+    feed.src = streamUrl;
+
+    // Se houver qualquer falha no stream na WebView, recarrega o poster para nunca ficar preto
+    feed.onerror = () => {
+      if (isNightAwake && poster) {
+        poster.src = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
+      }
+    };
+  }
+
+  // Toca alerta sonoro suave se habilitado
   if (nightSoundEnabled) {
     playNightChime();
   }

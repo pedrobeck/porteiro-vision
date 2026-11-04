@@ -44,36 +44,32 @@ class CameraWorker:
         if not HAS_CV2 or frame is None:
             return False
         try:
-            self.motion_frame_skip += 1
             now_ts = time.time()
-            if self.motion_frame_skip % 3 != 0:
-                self.motion_detected = (now_ts - self.last_motion_time) < 3.0
-                return self.motion_detected
 
             small = cv2.resize(frame, (160, 90), interpolation=cv2.INTER_AREA)
             gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-            gray = cv2.GaussianBlur(gray, (7, 7), 0)
+            gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
             if self.motion_detector_gray is None:
                 self.motion_detector_gray = gray.copy()
                 return False
 
             frame_diff = cv2.absdiff(self.motion_detector_gray, gray)
-            _, thresh = cv2.threshold(frame_diff, 25, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(frame_diff, 16, 255, cv2.THRESH_BINARY)
             thresh = cv2.dilate(thresh, None, iterations=2)
             changed_pixels = cv2.countNonZero(thresh)
             ratio = changed_pixels / 14400.0  # 160 * 90
 
-            # Atualiza fundo de referência dinamicamente
-            self.motion_detector_gray = cv2.addWeighted(self.motion_detector_gray, 0.88, gray, 0.12, 0)
+            # Atualiza fundo de referência dinamicamente de forma suave
+            self.motion_detector_gray = cv2.addWeighted(self.motion_detector_gray, 0.95, gray, 0.05, 0)
 
-            # Se mais de 1.2% da tela mudar = movimento detectado
-            if ratio >= 0.012:
+            # Se mais de 0.35% da tela mudar (~50 pixels) = movimento detectado imediatamente
+            if ratio >= 0.0035:
                 self.last_motion_time = now_ts
                 self.motion_detected = True
                 return True
             else:
-                self.motion_detected = (now_ts - self.last_motion_time) < 3.0
+                self.motion_detected = (now_ts - self.last_motion_time) < 4.0
                 return self.motion_detected
         except Exception:
             return False
@@ -239,8 +235,9 @@ class CameraWorker:
                     with self.lock:
                         self.latest_jpeg = jpg
 
-                    # Processa detecção de movimento em 1 a cada 6 quadros JPEG
-                    if HAS_CV2 and self.motion_frame_skip % 6 == 0:
+                    # Processa detecção de movimento em 1 a cada 2 quadros JPEG
+                    self.motion_frame_skip += 1
+                    if HAS_CV2 and (self.motion_frame_skip % 2 == 0):
                         try:
                             nparr = np.frombuffer(jpg, np.uint8)
                             ff_frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -318,8 +315,10 @@ class CameraWorker:
                 self.frame_count += 1
                 frames_in_sec += 1
 
-                # Executa detecção de movimento em tempo real
-                self._detect_motion(frame)
+                # Executa detecção de movimento rápida em 1 a cada 2 quadros
+                self.motion_frame_skip += 1
+                if self.motion_frame_skip % 2 == 0:
+                    self._detect_motion(frame)
 
                 # Calcula FPS a cada 1 segundo
                 now = time.time()
@@ -435,7 +434,7 @@ class CameraManager:
             for cid, w in self.workers.items():
                 is_motion = getattr(w, "motion_detected", False)
                 last_m = getattr(w, "last_motion_time", 0.0)
-                if now_ts - last_m >= 3.0:
+                if now_ts - last_m >= 4.0:
                     is_motion = False
                     w.motion_detected = False
                 status[cid] = {
@@ -456,7 +455,7 @@ class CameraManager:
                 w = self.workers.get(cid)
                 is_m = getattr(w, "motion_detected", False) if w else False
                 last_m = getattr(w, "last_motion_time", 0.0) if w else 0.0
-                if now_ts - last_m >= 3.0:
+                if now_ts - last_m >= 4.0:
                     is_m = False
                 status_list.append({
                     "id": cid,
@@ -477,7 +476,7 @@ class CameraManager:
                         sw = self.workers.get(sub_id)
                         sw_m = getattr(sw, "motion_detected", False) if sw else False
                         sw_last_m = getattr(sw, "last_motion_time", 0.0) if sw else 0.0
-                        if now_ts - sw_last_m >= 3.0:
+                        if now_ts - sw_last_m >= 4.0:
                             sw_m = False
                         status_list.append({
                             "id": sub_id,
@@ -501,8 +500,11 @@ class CameraManager:
                 continue
             
             frame_bytes = worker.get_jpeg()
+            frame_len = len(frame_bytes)
             yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n")
+                   b"Content-Type: image/jpeg\r\n"
+                   b"Content-Length: " + str(frame_len).encode("ascii") + b"\r\n\r\n" +
+                   frame_bytes + b"\r\n")
             time.sleep(0.04) # ~25 FPS máx
 
 manager = CameraManager()

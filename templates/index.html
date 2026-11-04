@@ -383,8 +383,10 @@
 
     <!-- ESTADO 2: TELA ACORDADA (MOVIMENTO DETECTADO!) -->
     <div id="nightWakeView" class="night-wake-view" style="display: none;">
+      <!-- Poster Instantâneo (Zero Black Screen ao Acordar) -->
+      <img id="nightWakePosterImg" class="night-wake-feed-img" alt="Foto Alerta" style="z-index: 1;">
       <!-- Stream da Câmera em Fullscreen Total -->
-      <img id="nightWakeFeedImg" class="night-wake-feed-img" alt="Câmera em Alerta">
+      <img id="nightWakeFeedImg" class="night-wake-feed-img" alt="Câmera em Alerta" style="z-index: 2; background: transparent;">
 
       <!-- Faixa Superior de Alerta -->
       <div class="night-wake-top-bar">
@@ -501,7 +503,7 @@
     window.ENV_SUPABASE_URL = "{{ supabase_url }}";
     window.ENV_SUPABASE_ANON_KEY = "{{ supabase_anon_key }}";
   </script>
-  <script src="/static/js/supabase.js?v=2.5"></script>
-  <script src="/static/js/app.js?v=2.5"></script>
+  <script src="/static/js/supabase.js?v=2.6"></script>
+  <script src="/static/js/app.js?v=2.6"></script>
 </body>
 </html>

@@ -235,10 +235,15 @@ def api_stream_camera(cam_id):
     if not worker or not worker.running:
         manager.start_worker(cam)
     
-    return Response(
+    resp = Response(
         manager.generate_mjpeg(actual_id),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.headers["Connection"] = "close"
+    return resp
 
 @app.route("/api/snapshot/<cam_id>")
 def api_snapshot_camera(cam_id):
@@ -254,7 +259,11 @@ def api_snapshot_camera(cam_id):
         time.sleep(0.5)
     
     jpeg_data = worker.get_jpeg()
-    return Response(jpeg_data, mimetype="image/jpeg")
+    resp = Response(jpeg_data, mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 # --- CONTROLE PTZ ---
 
