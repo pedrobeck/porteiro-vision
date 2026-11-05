@@ -72,58 +72,6 @@ async function initHubStatus() {
 async function autoSyncHubFromSupabase() {
   return true;
 }
-  if (isLocalEnvironment()) return true;
-
-  const hubDot = document.getElementById("hubDot");
-  const hubText = document.getElementById("hubStatusText");
-
-  try {
-    const sbUrl = window.ENV_SUPABASE_URL || localStorage.getItem("sb_url");
-    const sbKey = window.ENV_SUPABASE_ANON_KEY || localStorage.getItem("sb_anon_key");
-
-    if (!sbUrl || !sbKey) return false;
-
-    const res = await fetch(`${sbUrl}/rest/v1/hub_sync?id=eq.active_hub&select=*`, {
-      headers: { "apikey": sbKey, "Authorization": `Bearer ${sbKey}` }
-    });
-    const data = await res.json();
-
-    if (data && data.length > 0 && data[0].tunnel_url && data[0].is_online) {
-      const liveTunnel = data[0].tunnel_url.replace(/\/+$/, "");
-      const previousUrl = localStorage.getItem("stream_hub_url");
-      localStorage.setItem("stream_hub_url", liveTunnel);
-
-      // Testa se o túnel responde
-      try {
-        const testRes = await fetch(`${liveTunnel}/api/status`, { mode: "cors" });
-        if (testRes.ok) {
-          const wasOnline = isHubOnline;
-          isHubOnline = true;
-          if (hubDot) hubDot.className = "hub-dot online";
-          if (hubText) hubText.textContent = "Hub Online (Auto)";
-          
-          if (!wasOnline || previousUrl !== liveTunnel) {
-            await loadCameras();
-          }
-          return true;
-        }
-      } catch (err) {}
-    }
-
-    // Se não conectou, marca offline
-    const wasOnline = isHubOnline;
-    isHubOnline = false;
-    if (hubDot) hubDot.className = "hub-dot offline";
-    if (hubText) hubText.textContent = "PC Offline (start.bat)";
-    if (wasOnline) renderGrid();
-    return false;
-  } catch (err) {
-    isHubOnline = false;
-    if (hubDot) hubDot.className = "hub-dot offline";
-    if (hubText) hubText.textContent = "PC Offline";
-    return false;
-  }
-}
 
 function openHubConfigModal() {
   const input = document.getElementById("hubTunnelUrl");
@@ -181,55 +129,7 @@ async function saveHubConfig() {
 
   localStorage.setItem("stream_hub_url", url);
   closeHubModal();
-  await autoSyncHubFromSupabase();
   renderGrid();
-}
-
-// --- AUTH CONTROLS (SUPABASE) ---
-async function handleAuthSubmit(e) {
-  e.preventDefault();
-  const email = document.getElementById("authEmail").value.trim();
-  const password = document.getElementById("authPassword").value;
-  const alertBox = document.getElementById("authAlert");
-  const submitBtn = document.getElementById("authSubmitBtn");
-
-  alertBox.className = "test-alert";
-  alertBox.style.display = "none";
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Verificando...";
-
-  try {
-    await supabaseSignIn(email, password);
-    alertBox.className = "test-alert success";
-    alertBox.textContent = "✓ Acesso autorizado!";
-    alertBox.style.display = "block";
-  } catch (err) {
-    alertBox.className = "test-alert error";
-    alertBox.textContent = "✕ " + (err.message || "Erro na autenticação. Verifique a senha.");
-    alertBox.style.display = "block";
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Entrar";
-  }
-}
-
-function toggleSupabaseConfig() {
-  const box = document.getElementById("supabaseConfigBox");
-  box.style.display = box.style.display === "none" ? "block" : "none";
-  document.getElementById("cfgSbUrl").value = localStorage.getItem("sb_url") || "";
-  document.getElementById("cfgSbKey").value = localStorage.getItem("sb_anon_key") || "";
-}
-
-function saveCustomSupabaseConfig() {
-  const url = document.getElementById("cfgSbUrl").value.trim();
-  const key = document.getElementById("cfgSbKey").value.trim();
-  if (url && key) {
-    initSupabase(url, key);
-    alert("Chaves do Supabase salvas com sucesso! Agora você pode criar conta ou entrar.");
-    document.getElementById("supabaseConfigBox").style.display = "none";
-  } else {
-    alert("Informe a URL e a Anon Key do projeto Supabase.");
-  }
 }
 
 // --- LAYOUT SWITCHER ---
