@@ -28,8 +28,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "PorteiroPrefs";
     private static final String KEY_SERVER_URL = "server_url";
-    private static final String DEFAULT_LOCAL_URL = "http://192.168.4.127:8080";
-    private static final String CLOUD_FALLBACK_URL = "https://porteiro-vision.vercel.app";
+    private static final String DEFAULT_LOCAL_URL = "http://192.168.4.127:8090";
+    private static final String SECONDARY_LOCAL_URL = "http://192.168.4.127:8080";
 
     private WebView webView;
     private ProgressBar loadingBar;
@@ -100,8 +100,9 @@ public class MainActivity extends AppCompatActivity {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
 
-        // Aceleração de hardware gráfica
+        // Aceleração de hardware gráfica e fundo escuro
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        webView.setBackgroundColor(android.graphics.Color.parseColor("#0A0D14"));
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -145,6 +146,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadConfiguredUrl() {
         String url = prefs.getString(KEY_SERVER_URL, DEFAULT_LOCAL_URL);
+        if (url == null || url.contains("vercel.app")) {
+            url = DEFAULT_LOCAL_URL;
+            prefs.edit().putString(KEY_SERVER_URL, url).apply();
+        }
         triedFallback = false;
         webView.loadUrl(url);
     }
@@ -152,17 +157,17 @@ public class MainActivity extends AppCompatActivity {
     private void handleConnectionError() {
         if (!triedFallback) {
             triedFallback = true;
-            Toast.makeText(this, "Rede local inacessível. Conectando via Nuvem...", Toast.LENGTH_SHORT).show();
-            webView.loadUrl(CLOUD_FALLBACK_URL);
+            Toast.makeText(this, "Tentando porta alternativa (8080)...", Toast.LENGTH_SHORT).show();
+            webView.loadUrl(SECONDARY_LOCAL_URL);
         } else {
             loadingBar.setVisibility(View.GONE);
-            Toast.makeText(this, "Não foi possível conectar. Segure na tela para alterar o IP.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Não foi possível conectar. Segure o dedo na tela para alterar o IP.", Toast.LENGTH_LONG).show();
         }
     }
 
     private void showConfigServerDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Configurar IP do Servidor");
+        builder.setTitle("Configurar IP da Central");
 
         final EditText input = new EditText(this);
         String currentUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_LOCAL_URL);
@@ -182,10 +187,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        builder.setNeutralButton("Nuvem (Vercel)", (dialog, which) -> {
-            prefs.edit().putString(KEY_SERVER_URL, CLOUD_FALLBACK_URL).apply();
+        builder.setNeutralButton("Porta 8090", (dialog, which) -> {
+            prefs.edit().putString(KEY_SERVER_URL, DEFAULT_LOCAL_URL).apply();
             triedFallback = false;
-            webView.loadUrl(CLOUD_FALLBACK_URL);
+            webView.loadUrl(DEFAULT_LOCAL_URL);
         });
 
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
