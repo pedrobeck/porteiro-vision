@@ -17,3 +17,6 @@ go2rtc.yaml
 android/.gradle/
 android/app/build/
 android/build/
+dist/
+desktop/bin/
+desktop/obj/
