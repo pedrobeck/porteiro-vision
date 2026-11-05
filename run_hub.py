@@ -29,6 +29,8 @@ if os.path.exists(env_file):
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://ravhvhqvvajobgciudsh.supabase.co")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdmh2aHF2dmFqb2JnY2l1ZHNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MDU4NTgsImV4cCI6MjEwOTI4MTg1OH0.-8njNYlFg3VcSnEqsb3TZWra5T-hTrakkJvkYPaxL0g")
 
+ENABLE_CONDO_P2P = os.environ.get("ENABLE_CONDO_P2P", "0") == "1"
+
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -94,6 +96,10 @@ def sync_cameras_from_supabase():
                 merged = []
                 for cc in cloud_cams:
                     cid = cc["id"]
+                    # Se P2P do condomínio estiver desligado, não re-importa câmeras do condomínio
+                    name_lower = cc.get("name", "").lower()
+                    if not ENABLE_CONDO_P2P and ("condominio" in name_lower or "condomínio" in name_lower or "portao" in name_lower or "portão" in name_lower or cc.get("brand") == "intelbras"):
+                        continue
                     existing = cam_map.get(cid, {})
                     host = cc.get("host", existing.get("host", "127.0.0.1"))
                     merged.append({
@@ -112,8 +118,9 @@ def sync_cameras_from_supabase():
                         "order": len(merged),
                         "created_at": cc.get("created_at", existing.get("created_at", ""))
                     })
-                save_cameras(merged)
-                print(f"[HubSync] {len(merged)} câmeras sincronizadas com sucesso do Supabase.")
+                if merged:
+                    save_cameras(merged)
+                    print(f"[HubSync] {len(merged)} câmeras sincronizadas com sucesso do Supabase.")
     except Exception as e:
         print(f"[HubSync] Aviso ao sincronizar cameras da nuvem: {e}")
 
@@ -196,8 +203,12 @@ def main():
     # Sincroniza câmeras do Supabase
     sync_cameras_from_supabase()
 
-    print("[1/4] Inicializando túnel P2P para as câmeras do condomínio...")
-    bridge_proc = start_p2p_bridge()
+    bridge_proc = None
+    if ENABLE_CONDO_P2P:
+        print("[1/4] Inicializando túnel P2P para as câmeras do condomínio...")
+        bridge_proc = start_p2p_bridge()
+    else:
+        print("[1/4] Câmeras do condomínio desativadas (foco exclusivo em RTSP local da casa).")
 
     tunnel_proc = None
     tunnel_url = None
@@ -245,12 +256,15 @@ def main():
     # Monitor de processos filhos (auto-cura se a ponte cair)
     def _monitor_subprocesses():
         nonlocal bridge_proc
+        if not ENABLE_CONDO_P2P:
+            return
         while True:
             time.sleep(5)
             if bridge_proc and bridge_proc.poll() is not None:
                 print("[Watchdog Hub] Ponte P2P encerrou inesperadamente. Reiniciando...", flush=True)
                 bridge_proc = start_p2p_bridge()
-    threading.Thread(target=_monitor_subprocesses, daemon=True).start()
+    if ENABLE_CONDO_P2P:
+        threading.Thread(target=_monitor_subprocesses, daemon=True).start()
 
     # Importa e roda o app Flask local
     sys.path.insert(0, BASE_DIR)

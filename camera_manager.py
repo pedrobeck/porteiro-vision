@@ -86,8 +86,8 @@ class CameraWorker:
                 self.proc.terminate()
             except Exception:
                 pass
-        if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=1.0)
+        if self.thread and self.thread.is_alive() and self.thread != threading.current_thread():
+            self.thread.join(timeout=0.2)
 
     def _generate_placeholder(self, status_text, detail_text=""):
         if not HAS_CV2 or cv2 is None or np is None:
@@ -327,10 +327,16 @@ class CameraWorker:
                     frames_in_sec = 0
                     fps_timer = now
 
-                # Estampa d'água de telemetria CCTV no canto do frame real
                 h, w = frame.shape[:2]
+                # Se a resolução nativa for muito alta (ex: 2K / 4K / Tapo em 2560x1440),
+                # redimensiona para 1280x720 para não sobrecarregar a rede Wi-Fi e o processador
+                if w > 1280:
+                    new_h = int(h * (1280.0 / w))
+                    frame = cv2.resize(frame, (1280, new_h), interpolation=cv2.INTER_AREA)
+                    h, w = frame.shape[:2]
+
+                # Estampa d'água de telemetria CCTV no canto do frame real
                 ts_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # Barra inferior semi-transparente ou texto direto com sombra
                 cv2.putText(frame, f"{self.name} | {ts_str} | {self.fps} FPS", (15, h - 15), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 3, cv2.LINE_AA)
                 cv2.putText(frame, f"{self.name} | {ts_str} | {self.fps} FPS", (15, h - 15), 
@@ -374,10 +380,11 @@ class CameraManager:
 
     def start_worker(self, camera, restart_main=True):
         cam_id = camera["id"]
+        to_stop = []
         with self.lock:
             if restart_main or (cam_id not in self.workers) or (not self.workers[cam_id].running):
                 if cam_id in self.workers:
-                    self.workers[cam_id].stop()
+                    to_stop.append(self.workers[cam_id])
                 worker = CameraWorker(camera)
                 worker.start()
                 self.workers[cam_id] = worker
@@ -391,7 +398,7 @@ class CameraManager:
                     sub_id = f"{cam_id}_sub{sub_idx}"
                     if sub_id not in self.workers or not self.workers[sub_id].running:
                         if sub_id in self.workers:
-                            self.workers[sub_id].stop()
+                            to_stop.append(self.workers[sub_id])
 
                         sub_cam = {
                             "id": sub_id,
@@ -410,15 +417,21 @@ class CameraManager:
                 for sub_idx in (1, 2):
                     sub_id = f"{cam_id}_sub{sub_idx}"
                     if sub_id in self.workers:
-                        self.workers[sub_id].stop()
+                        to_stop.append(self.workers[sub_id])
                         del self.workers[sub_id]
 
+        for w in to_stop:
+            threading.Thread(target=w.stop, daemon=True).start()
+
     def stop_worker(self, cam_id):
+        to_stop = []
         with self.lock:
             for cid in [cam_id, f"{cam_id}_sub1", f"{cam_id}_sub2"]:
                 if cid in self.workers:
-                    self.workers[cid].stop()
+                    to_stop.append(self.workers[cid])
                     del self.workers[cid]
+        for w in to_stop:
+            threading.Thread(target=w.stop, daemon=True).start()
 
     def restart_worker(self, camera):
         self.start_worker(camera, restart_main=True)
@@ -513,6 +526,6 @@ class CameraManager:
                    b"Content-Type: image/jpeg\r\n"
                    b"Content-Length: " + str(frame_len).encode("ascii") + b"\r\n\r\n" +
                    frame_bytes + b"\r\n")
-            time.sleep(0.02)
+            time.sleep(0.035)
 
 manager = CameraManager()

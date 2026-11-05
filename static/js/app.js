@@ -28,7 +28,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 // --- PWA SERVICE WORKER ---
 function registerPWA() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if (isLocalEnvironment()) {
+      // No ambiente local de casa (PC/Tablet), desregistra Service Worker para eliminar cache e lentidão
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const reg of registrations) {
+          reg.unregister();
+        }
+      });
+      if ("caches" in window) {
+        caches.keys().then((keys) => {
+          keys.forEach((k) => caches.delete(k));
+        });
+      }
+    } else {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }
 }
 
@@ -256,21 +270,48 @@ function setLayout(layout) {
 }
 
 // --- CARREGAMENTO E RENDERIZAÇÃO DAS CÂMERAS ---
-async function loadCameras() {
+async function loadCameras(forceFullRender = false) {
   try {
     const baseUrl = getStreamBaseUrl();
     const res = await fetch(`${baseUrl}/api/cameras`);
     const data = await res.json();
-    if (data && Array.isArray(data) && data.length > 0) {
+    if (data && Array.isArray(data)) {
+      const prevIds = (window.cameras || []).map((c) => c.id).join(",");
+      const newIds = data.map((c) => c.id).join(",");
       window.cameras = data;
-      renderGrid();
-    } else if (!window.cameras || window.cameras.length === 0) {
-      window.cameras = data || [];
-      renderGrid();
+      
+      const grid = document.getElementById("cameraGrid");
+      const hasCells = grid && grid.querySelector(".camera-cell");
+      
+      if (forceFullRender || prevIds !== newIds || !hasCells) {
+        renderGrid();
+      } else {
+        updateExistingGridLabels(data);
+      }
     }
   } catch (err) {
     console.error("Erro ao carregar câmeras:", err);
   }
+}
+
+function updateExistingGridLabels(cameras) {
+  cameras.forEach((cam) => {
+    const cell = document.querySelector(`.camera-cell[data-id="${cam.id}"]`);
+    if (cell) {
+      const nameEl = cell.querySelector(".camera-name");
+      if (nameEl) {
+        const isSubLens = !!cam.is_sub_lens;
+        nameEl.innerHTML = `
+          ${escapeHtml(cam.name)}
+          ${isSubLens ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); margin-left: 6px; font-weight: 700; vertical-align: middle;">FIXA</span>` : ''}
+        `;
+      }
+      const metaEl = cell.querySelector(".camera-meta");
+      if (metaEl) {
+        metaEl.textContent = `${cam.status || "CONECTANDO"} | ${cam.fps || 0} FPS`;
+      }
+    }
+  });
 }
 
 function startStatusPolling() {

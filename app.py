@@ -43,6 +43,8 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    if request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
 DEFAULT_SUPABASE_URL = "https://ravhvhqvvajobgciudsh.supabase.co"
@@ -152,7 +154,7 @@ def api_add_camera():
         return jsonify({"error": "Host/IP da câmera é obrigatório"}), 400
     
     new_cam = add_camera(data)
-    manager.start_worker(new_cam)
+    threading.Thread(target=manager.start_worker, args=(new_cam,), daemon=True).start()
     return jsonify(new_cam), 201
 
 @app.route("/api/cameras/<cam_id>", methods=["GET"])
@@ -173,8 +175,8 @@ def api_update_camera(cam_id):
 
 @app.route("/api/cameras/<cam_id>", methods=["DELETE"])
 def api_delete_camera(cam_id):
-    manager.stop_worker(cam_id)
     if delete_camera(cam_id):
+        threading.Thread(target=manager.stop_worker, args=(cam_id,), daemon=True).start()
         return jsonify({"success": True})
     return jsonify({"error": "Câmera não encontrada"}), 404
 
