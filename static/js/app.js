@@ -347,15 +347,18 @@ function updateSystemStats(sys) {
   if (statCpu && sys.cpu_percent !== undefined) {
     statCpu.textContent = `${sys.cpu_percent}%`;
     if (pillCpu) {
-      pillCpu.className = sys.cpu_percent >= 85 ? "stat-pill danger" : (sys.cpu_percent >= 70 ? "stat-pill warn" : "stat-pill");
+      pillCpu.className = sys.cpu_percent >= 50 ? "stat-pill danger" : (sys.cpu_percent >= 25 ? "stat-pill warn" : "stat-pill");
     }
   }
 
-  if (statRam && sys.ram_percent !== undefined) {
-    const used = sys.ram_used_gb ? `${sys.ram_used_gb}G` : "";
-    statRam.textContent = used ? `${sys.ram_percent}% (${used})` : `${sys.ram_percent}%`;
+  if (statRam) {
+    const ramDisplay = sys.ram_str || (sys.ram_used_mb ? `${sys.ram_used_mb} MB` : (sys.ram_used_gb ? `${Math.round(sys.ram_used_gb * 1024)} MB` : ""));
+    if (ramDisplay) {
+      statRam.textContent = ramDisplay;
+    }
     if (pillRam) {
-      pillRam.className = sys.ram_percent >= 90 ? "stat-pill danger" : (sys.ram_percent >= 80 ? "stat-pill warn" : "stat-pill");
+      const mb = sys.ram_used_mb || (sys.ram_used_gb ? sys.ram_used_gb * 1024 : 0);
+      pillRam.className = mb >= 2048 ? "stat-pill danger" : (mb >= 1024 ? "stat-pill warn" : "stat-pill");
     }
   }
 

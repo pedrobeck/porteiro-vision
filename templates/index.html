@@ -55,21 +55,21 @@
         <span id="hubStatusText">Hub: Desconectado</span>
       </div>
 
-      <!-- Telemetria do Sistema (CPU, RAM, Internet) -->
-      <div class="system-stats-bar" id="systemStatsBar" title="Telemetria em Tempo Real do Servidor">
-        <div class="stat-pill" id="pillCpu" title="Consumo de CPU">
+      <!-- Telemetria do Porteiro Vision (CPU, RAM, Rede) -->
+      <div class="system-stats-bar" id="systemStatsBar" title="Telemetria em Tempo Real do Porteiro Vision">
+        <div class="stat-pill" id="pillCpu" title="Consumo de CPU do Porteiro Vision">
           <span class="stat-icon">⚡</span>
-          <span class="stat-label">CPU:</span>
+          <span class="stat-label">CPU App:</span>
           <strong id="statCpu">--%</strong>
         </div>
-        <div class="stat-pill" id="pillRam" title="Consumo de Memória RAM">
+        <div class="stat-pill" id="pillRam" title="Consumo de Memória RAM do Porteiro Vision">
           <span class="stat-icon">🧠</span>
-          <span class="stat-label">RAM:</span>
-          <strong id="statRam">--%</strong>
+          <span class="stat-label">RAM App:</span>
+          <strong id="statRam">-- MB</strong>
         </div>
-        <div class="stat-pill" id="pillNet" title="Taxa de Consumo de Rede / Internet">
+        <div class="stat-pill" id="pillNet" title="Taxa de Tráfego das Câmeras (Entrada / Saída)">
           <span class="stat-icon">🌐</span>
-          <span class="stat-label">Rede:</span>
+          <span class="stat-label">Vídeo:</span>
           <strong id="statNet">↓ -- / ↑ --</strong>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import os
 import time
 import threading
 
@@ -9,56 +10,92 @@ except ImportError:
 
 class SystemMonitor:
     """
-    Monitor contínuo e assíncrono de recursos do sistema:
-    - Uso de CPU (%)
-    - Uso de Memória RAM (% e GB)
-    - Taxa de transferência de Rede / Internet (Download e Upload em KB/s ou MB/s)
+    Monitor contínuo e assíncrono de recursos EXCLUSIVOS do Porteiro Vision:
+    - Uso de CPU do processo (%)
+    - Uso de Memória RAM do processo (MB)
+    - Taxa de transferência de Vídeo / Streaming das câmeras (Download e Upload em KB/s)
     """
     def __init__(self, sample_interval=1.5):
         self.sample_interval = sample_interval
         self.cpu_percent = 0.0
+        self.ram_used_mb = 0.0
         self.ram_percent = 0.0
-        self.ram_used_gb = 0.0
-        self.ram_total_gb = 0.0
         self.net_down_kbps = 0.0
         self.net_up_kbps = 0.0
         self.running = False
         self._thread = None
+        self._proc = None
         
         if HAS_PSUTIL:
+            try:
+                self._proc = psutil.Process(os.getpid())
+            except Exception:
+                pass
             self.running = True
             self._thread = threading.Thread(target=self._worker, daemon=True, name="SystemMonitorWorker")
             self._thread.start()
 
     def _worker(self):
+        last_time = time.time()
+        last_net = None
+
+        if self._proc:
+            try:
+                self._proc.cpu_percent(interval=None)
+            except Exception:
+                pass
+
         try:
-            last_io = psutil.net_io_counters()
-            last_time = time.time()
-            psutil.cpu_percent(interval=None)
+            last_net = psutil.net_io_counters()
         except Exception:
-            return
+            pass
 
         while self.running:
             time.sleep(self.sample_interval)
             try:
-                curr_io = psutil.net_io_counters()
                 curr_time = time.time()
                 dt = max(curr_time - last_time, 0.1)
 
-                rx_bytes = max(curr_io.bytes_recv - last_io.bytes_recv, 0)
-                tx_bytes = max(curr_io.bytes_sent - last_io.bytes_sent, 0)
+                if self._proc and self._proc.is_running():
+                    # Mede CPU e RAM do processo atual (Python)
+                    total_cpu = self._proc.cpu_percent(interval=None)
+                    total_rss = self._proc.memory_info().rss
 
-                self.net_down_kbps = (rx_bytes / dt) / 1024.0
-                self.net_up_kbps = (tx_bytes / dt) / 1024.0
+                    # Soma processos filhos (ex: threads, subprocessos)
+                    try:
+                        for child in self._proc.children(recursive=True):
+                            if child.is_running():
+                                total_cpu += child.cpu_percent(interval=None)
+                                total_rss += child.memory_info().rss
+                    except Exception:
+                        pass
 
-                last_io = curr_io
+                    # Se foi iniciado pelo PorteiroVision.exe (WPF), soma o consumo da casca C#
+                    try:
+                        parent = self._proc.parent()
+                        if parent and parent.is_running() and "porteiro" in parent.name().lower():
+                            total_cpu += parent.cpu_percent(interval=None)
+                            total_rss += parent.memory_info().rss
+                    except Exception:
+                        pass
+
+                    cpu_cores = psutil.cpu_count() or 1
+                    self.cpu_percent = round(total_cpu / cpu_cores, 1)
+                    self.ram_used_mb = round(total_rss / (1024.0 * 1024.0), 1)
+
+                    mem_total = psutil.virtual_memory().total
+                    self.ram_percent = round((total_rss / mem_total) * 100.0, 1)
+
+                # Tráfego de rede (taxa de vídeo que entra das câmeras e sai para o navegador/tablet)
+                curr_net = psutil.net_io_counters()
+                if last_net:
+                    rx_bytes = max(curr_net.bytes_recv - last_net.bytes_recv, 0)
+                    tx_bytes = max(curr_net.bytes_sent - last_net.bytes_sent, 0)
+                    self.net_down_kbps = (rx_bytes / dt) / 1024.0
+                    self.net_up_kbps = (tx_bytes / dt) / 1024.0
+                last_net = curr_net
                 last_time = curr_time
 
-                self.cpu_percent = psutil.cpu_percent(interval=None)
-                mem = psutil.virtual_memory()
-                self.ram_percent = mem.percent
-                self.ram_used_gb = mem.used / (1024.0 ** 3)
-                self.ram_total_gb = mem.total / (1024.0 ** 3)
             except Exception:
                 pass
 
@@ -71,11 +108,15 @@ class SystemMonitor:
                 return f"{kbps / 1024.0:.1f} MB/s"
             return f"{kbps:.0f} KB/s"
 
+        ram_str = f"{self.ram_used_mb:.0f} MB" if self.ram_used_mb < 1024 else f"{self.ram_used_mb / 1024.0:.1f} GB"
+
         return {
             "cpu_percent": round(self.cpu_percent, 1),
             "ram_percent": round(self.ram_percent, 1),
-            "ram_used_gb": round(self.ram_used_gb, 1),
-            "ram_total_gb": round(self.ram_total_gb, 1),
+            "ram_used_mb": round(self.ram_used_mb, 1),
+            "ram_used_gb": round(self.ram_used_mb / 1024.0, 2),
+            "ram_total_gb": round(psutil.virtual_memory().total / (1024.0 ** 3), 1) if HAS_PSUTIL else 0.0,
+            "ram_str": ram_str,
             "net_down_kbps": round(self.net_down_kbps, 1),
             "net_up_kbps": round(self.net_up_kbps, 1),
             "net_down_str": fmt_speed(self.net_down_kbps),

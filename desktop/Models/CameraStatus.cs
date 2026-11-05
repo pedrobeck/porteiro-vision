@@ -40,6 +40,12 @@ public class SystemTelemetry
     [JsonPropertyName("ram_used_gb")]
     public double RamUsedGb { get; set; } = 0.0;
 
+    [JsonPropertyName("ram_used_mb")]
+    public double RamUsedMb { get; set; } = 0.0;
+
+    [JsonPropertyName("ram_str")]
+    public string RamStr { get; set; } = "";
+
     [JsonPropertyName("ram_total_gb")]
     public double RamTotalGb { get; set; } = 0.0;
 

@@ -203,22 +203,22 @@
 
                             <Border Background="#1E293B" CornerRadius="8" Padding="10,8" Margin="4,0,0,4">
                                 <StackPanel>
-                                    <TextBlock Text="CPU do PC" FontSize="11" Foreground="#94A3B8"/>
+                                    <TextBlock Text="CPU do App" FontSize="11" Foreground="#94A3B8"/>
                                     <TextBlock x:Name="CpuText" Text="-- %" FontSize="15" FontWeight="Bold" Foreground="#10B981" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Border>
 
                             <Border Background="#1E293B" CornerRadius="8" Padding="10,8" Margin="0,4,4,0">
                                 <StackPanel>
-                                    <TextBlock Text="Memória RAM" FontSize="11" Foreground="#94A3B8"/>
-                                    <TextBlock x:Name="RamText" Text="-- GB" FontSize="15" FontWeight="Bold" Foreground="#F59E0B" Margin="0,2,0,0"/>
+                                    <TextBlock Text="RAM do App" FontSize="11" Foreground="#94A3B8"/>
+                                    <TextBlock x:Name="RamText" Text="-- MB" FontSize="15" FontWeight="Bold" Foreground="#F59E0B" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Border>
 
                             <Border Background="#1E293B" CornerRadius="8" Padding="10,8" Margin="4,4,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="Tráfego de Rede" FontSize="11" Foreground="#94A3B8"/>
-                                    <TextBlock x:Name="NetText" Text="-- MB/s" FontSize="15" FontWeight="Bold" Foreground="#A855F7" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Vídeo Câmeras" FontSize="11" Foreground="#94A3B8"/>
+                                    <TextBlock x:Name="NetText" Text="-- KB/s" FontSize="15" FontWeight="Bold" Foreground="#A855F7" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Border>
                         </UniformGrid>

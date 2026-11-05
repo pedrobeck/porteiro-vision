@@ -173,9 +173,9 @@ public partial class MainWindow : Window
         // Atualiza Telemetria
         if (status.System != null)
         {
-            CpuText.Text = $"{status.System.CpuPercent:F0} %";
-            RamText.Text = $"{status.System.RamUsedGb:F1} GB";
-            NetText.Text = status.System.NetUpStr;
+            CpuText.Text = $"{status.System.CpuPercent:F1} %";
+            RamText.Text = !string.IsNullOrEmpty(status.System.RamStr) ? status.System.RamStr : $"{status.System.RamUsedMb:F0} MB";
+            NetText.Text = status.System.NetDownStr;
         }
 
         int onlineCount = 0;
