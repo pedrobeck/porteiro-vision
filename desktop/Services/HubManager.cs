@@ -55,10 +55,28 @@ public class HubManager : IDisposable
 
         _isStarting = true;
         TunnelUrl = "";
-        Log("[HubManager] Iniciando central Porteiro Vision em segundo plano...");
+        Log("[HubManager] Verificando central Porteiro Vision...");
 
         try
         {
+            // 1. Verifica se o servidor Python já está ativo e respondendo na porta 8090
+            try
+            {
+                var check = await _http.GetAsync($"http://127.0.0.1:{Port}/api/status");
+                if (check.IsSuccessStatusCode)
+                {
+                    Log($"[HubManager] Central já ativa e respondendo na porta {Port}.");
+                    _isStarting = false;
+                    OnStateChanged?.Invoke(true);
+                    _pollTimer = new System.Threading.Timer(async _ => await PollStatusAsync(), null, 500, 2500);
+                    return true;
+                }
+            }
+            catch { }
+
+            // 2. Encerra qualquer processo python órfão na porta antes de iniciar novo
+            KillOrphanedHubProcesses();
+
             var pythonExe = FindPythonPath();
             var runHubScript = Path.Combine(ProjectDir, "run_hub.py");
 
@@ -83,7 +101,7 @@ public class HubManager : IDisposable
                 Environment =
                 {
                     ["NO_AUTO_BROWSER"] = "1",
-                    ["PORT"] = "8090"
+                    ["PORT"] = Port.ToString()
                 }
             };
 
@@ -201,6 +219,23 @@ public class HubManager : IDisposable
         _hubProcess = null;
         OnStateChanged?.Invoke(false);
         Log("[HubManager] Todos os processos foram finalizados com sucesso.");
+    }
+
+    private void KillOrphanedHubProcesses()
+    {
+        try
+        {
+            var pyProcs = Process.GetProcessesByName("python");
+            foreach (var p in pyProcs)
+            {
+                try
+                {
+                    p.Kill();
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 
     private void Log(string message)

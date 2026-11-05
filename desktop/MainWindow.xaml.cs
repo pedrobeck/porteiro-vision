@@ -20,9 +20,13 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        App.Trace("MainWindow constructor entered");
         InitializeComponent();
+        App.Trace("MainWindow InitializeComponent finished");
         SetupTrayIcon();
+        App.Trace("MainWindow SetupTrayIcon finished");
         SetupHubEvents();
+        App.Trace("MainWindow SetupHubEvents finished");
 
         // Carrega configurações salvas
         StartWithWindowsCheck.IsChecked = AutoStartHelper.IsAutoStartEnabled();
@@ -30,12 +34,15 @@ public partial class MainWindow : Window
         // Inicia a central de câmeras automaticamente ao abrir o aplicativo
         Loaded += async (s, e) =>
         {
+            App.Trace("MainWindow.Loaded event fired");
             var args = Environment.GetCommandLineArgs();
             if (args.Length > 1 && args[1].Contains("--minimized"))
             {
+                App.Trace("MainWindow minimizing to tray on launch");
                 Hide();
             }
             await _hub.StartAsync();
+            App.Trace("MainWindow _hub.StartAsync finished");
         };
     }
 
@@ -368,6 +375,7 @@ public partial class MainWindow : Window
 
     private async void FullExit()
     {
+        App.Trace("MainWindow.FullExit called");
         _isExplicitExit = true;
         _trayIcon?.Dispose();
         await _hub.StopAsync();
@@ -376,6 +384,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        App.Trace($"MainWindow.OnClosing called: _isExplicitExit={_isExplicitExit}, MinimizeToTray={MinimizeToTrayCheck.IsChecked}");
         if (!_isExplicitExit && MinimizeToTrayCheck.IsChecked == true)
         {
             e.Cancel = true;
