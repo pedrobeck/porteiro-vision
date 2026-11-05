@@ -20,7 +20,7 @@ public class HubManager : IDisposable
     public bool IsRunning => _hubProcess != null && !_hubProcess.HasExited;
     public string TunnelUrl { get; private set; } = "";
     public string LocalIp { get; private set; } = "127.0.0.1";
-    public int Port { get; private set; } = 8080;
+    public int Port { get; private set; } = 8090;
 
     public event Action<string>? OnLog;
     public event Action<bool>? OnStateChanged;
@@ -79,7 +79,12 @@ public class HubManager : IDisposable
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 StandardOutputEncoding = System.Text.Encoding.UTF8,
-                StandardErrorEncoding = System.Text.Encoding.UTF8
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
+                Environment =
+                {
+                    ["NO_AUTO_BROWSER"] = "1",
+                    ["PORT"] = "8090"
+                }
             };
 
             _hubProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -147,7 +152,7 @@ public class HubManager : IDisposable
         }
 
         // Detecta IP Local
-        var ipMatch = Regex.Match(line, @"http://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):8080");
+        var ipMatch = Regex.Match(line, @"http://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):8090");
         if (ipMatch.Success)
         {
             LocalIp = ipMatch.Groups[1].Value;
@@ -160,7 +165,7 @@ public class HubManager : IDisposable
 
         try
         {
-            var res = await _http.GetStringAsync("http://127.0.0.1:8080/api/status");
+            var res = await _http.GetStringAsync("http://127.0.0.1:8090/api/status");
             var status = JsonSerializer.Deserialize<HubStatusResponse>(res);
             if (status != null)
             {

@@ -152,7 +152,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="🏠 Este PC:" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="LocalUrlText" Grid.Column="1" Text="http://localhost:8080" Foreground="#F8FAFC" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="LocalUrlText" Grid.Column="1" Text="http://127.0.0.1:8090" Foreground="#F8FAFC" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             <StackPanel Grid.Column="2" Orientation="Horizontal">
                                 <Button Style="{StaticResource ModernBtn}" Content="Abrir" Margin="0,0,6,0" Click="OpenLocalBrowser_Click"/>
                                 <Button Style="{StaticResource ModernBtn}" Content="Copiar" Click="CopyLocalUrl_Click"/>
@@ -167,7 +167,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="📱 Tablet/Wi-Fi:" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="WifiUrlText" Grid.Column="1" Text="http://192.168.4.127:8080" Foreground="#F8FAFC" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="WifiUrlText" Grid.Column="1" Text="http://192.168.4.127:8090" Foreground="#F8FAFC" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             <Button Grid.Column="2" Style="{StaticResource ModernBtn}" Content="Copiar" Click="CopyWifiUrl_Click"/>
                         </Grid>
 

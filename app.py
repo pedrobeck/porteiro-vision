@@ -311,7 +311,7 @@ def api_status():
     })
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8090))
     print("=" * 60)
     print("🚀 PORTEIRO VISION - CENTRAL DE CÂMERAS INTELIGENTE")
     print(f"👉 Acesso Local:     http://localhost:{port}")

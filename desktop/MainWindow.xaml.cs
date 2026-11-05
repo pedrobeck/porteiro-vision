@@ -27,15 +27,15 @@ public partial class MainWindow : Window
         // Carrega configurações salvas
         StartWithWindowsCheck.IsChecked = AutoStartHelper.IsAutoStartEnabled();
 
-        // Se o aplicativo foi iniciado com argumento --minimized, esconde para a bandeja
+        // Inicia a central de câmeras automaticamente ao abrir o aplicativo
         Loaded += async (s, e) =>
         {
             var args = Environment.GetCommandLineArgs();
             if (args.Length > 1 && args[1].Contains("--minimized"))
             {
                 Hide();
-                await _hub.StartAsync();
             }
+            await _hub.StartAsync();
         };
     }
 
@@ -130,7 +130,7 @@ public partial class MainWindow : Window
             MainActionBtn.Content = "⏹ PARAR HUB DE CÂMERAS";
 
             HubSubtitle.Text = "A central está online. O servidor de vídeo e detecção noturna estão ativos.";
-            FooterStatus.Text = "Hub de streaming ativo na porta 8080.";
+            FooterStatus.Text = "Hub de streaming ativo na porta 8090.";
 
             if (_trayIcon?.ContextMenuStrip?.Items[0] is Forms.ToolStripMenuItem item)
             {
@@ -167,7 +167,7 @@ public partial class MainWindow : Window
         // Atualiza URLs
         if (!string.IsNullOrEmpty(status.ServerIp))
         {
-            WifiUrlText.Text = $"http://{status.ServerIp}:8080";
+            WifiUrlText.Text = $"http://{status.ServerIp}:8090";
         }
 
         // Atualiza Telemetria
@@ -291,7 +291,7 @@ public partial class MainWindow : Window
 
     private void OpenLocalBrowser_Click(object sender, RoutedEventArgs? e)
     {
-        try { Process.Start(new ProcessStartInfo("http://localhost:8080") { UseShellExecute = true }); } catch { }
+        try { Process.Start(new ProcessStartInfo("http://127.0.0.1:8090") { UseShellExecute = true }); } catch { }
     }
 
     private void OpenCloudBrowser_Click(object sender, RoutedEventArgs e)
@@ -323,7 +323,7 @@ public partial class MainWindow : Window
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         timer.Tick += (s, e) =>
         {
-            FooterStatus.Text = _hub.IsRunning ? "Hub de streaming ativo na porta 8080." : "Pronto.";
+            FooterStatus.Text = _hub.IsRunning ? "Hub de streaming ativo na porta 8090." : "Pronto.";
             timer.Stop();
         };
         timer.Start();

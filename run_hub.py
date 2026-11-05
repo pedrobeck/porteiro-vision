@@ -162,7 +162,7 @@ def start_tunnel():
         return None, None
 
     proc = subprocess.Popen(
-        [CLOUDFLARED_BIN, "tunnel", "--url", "http://127.0.0.1:8080"],
+        [CLOUDFLARED_BIN, "tunnel", "--url", "http://127.0.0.1:8090"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -187,7 +187,7 @@ def start_tunnel():
 
 def main():
     local_ip = get_local_ip()
-    port = 8080
+    port = 8090
     
     print("\n" + "=" * 70)
     print("[PORTEIRO VISION] CENTRAL HIBRIDA INTELIGENTE (LOCAL + CLOUD)")
@@ -199,34 +199,47 @@ def main():
     print("[1/4] Inicializando túnel P2P para as câmeras do condomínio...")
     bridge_proc = start_p2p_bridge()
 
-    print("[2/4] Estabelecendo tunel Cloudflare para acesso externo...")
-    tunnel_proc, tunnel_url = start_tunnel()
-    
-    if tunnel_url:
-        copy_to_clipboard(tunnel_url)
-        print("[3/4] Tunel ativo! Sincronizando com a Vercel via Supabase...")
-        sync_hub_to_supabase(tunnel_url, is_online=True)
-    else:
-        print("[3/4] Tunel nao iniciado. Central funcionara exclusivamente na rede local.")
-        
-    print("[4/4] Servidor de streaming local ativo na porta 8080.")
+    tunnel_proc = None
+    tunnel_url = None
+
+    def _start_tunnel_async():
+        nonlocal tunnel_proc, tunnel_url
+        print("[2/4] Estabelecendo tunel Cloudflare para acesso externo...", flush=True)
+        tunnel_proc, tunnel_url = start_tunnel()
+        if tunnel_url:
+            copy_to_clipboard(tunnel_url)
+            print(f"[3/4] Tunel ativo: {tunnel_url}", flush=True)
+            sync_hub_to_supabase(tunnel_url, is_online=True)
+        else:
+            print("[3/4] Tunel nao iniciado. Central funcionara exclusivamente na rede local.", flush=True)
+
+    threading.Thread(target=_start_tunnel_async, daemon=True).start()
+
+    print(f"[4/4] Servidor de streaming local ativo na porta {port}.")
     print("=" * 70)
     print("DENTRO DE CASA (Zero Latencia):")
-    print(f"   Acesso no Computador:            http://localhost:{port}")
+    print(f"   Acesso no Computador:            http://127.0.0.1:{port}")
     print(f"   Acesso no Tablet/Celular (Wi-Fi): http://{local_ip}:{port}")
     print("=" * 70)
     print("FORA DE CASA (Na rua / 4G / 5G):")
     print("   Acesse: https://porteiro-vision.vercel.app")
-    if tunnel_url:
-        print("   Conexao 100% AUTOMATICA! O site reconhece seu PC ligado.")
-        print(f"   Link Seguro: {tunnel_url}")
     print("=" * 70 + "\n")
 
-    # Abre o navegador local automaticamente apos 1.5s
+    # Abre o navegador local apenas quando o Flask estiver respondendo com 200 OK
     def _open_browser():
-        time.sleep(1.5)
-        webbrowser.open(f"http://localhost:{port}")
-    
+        if os.environ.get("NO_AUTO_BROWSER"):
+            return
+        for _ in range(40):
+            time.sleep(0.5)
+            try:
+                import urllib.request
+                req = urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=1)
+                if req.status == 200:
+                    webbrowser.open(f"http://127.0.0.1:{port}")
+                    break
+            except Exception:
+                pass
+
     threading.Thread(target=_open_browser, daemon=True).start()
 
     # Monitor de processos filhos (auto-cura se a ponte cair)
