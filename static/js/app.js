@@ -504,6 +504,8 @@ function openAddCameraModal() {
   if (mlGroup) mlGroup.style.display = "none";
   const mlCheck = document.getElementById("camMultiLens");
   if (mlCheck) mlCheck.checked = false;
+  const sensSelect = document.getElementById("camSensitivity");
+  if (sensSelect) sensSelect.value = "medium";
   document.getElementById("testResult").className = "test-alert";
   document.getElementById("deleteCameraBtn").style.display = "none";
   document.getElementById("cameraModal").classList.add("open");
@@ -534,6 +536,10 @@ function openEditCameraModal(camId, event) {
   const mlCheck = document.getElementById("camMultiLens");
   if (mlCheck) {
     mlCheck.checked = !!cam.multi_lens;
+  }
+  const sensSelect = document.getElementById("camSensitivity");
+  if (sensSelect) {
+    sensSelect.value = cam.motion_sensitivity || "medium";
   }
 
   document.getElementById("testResult").className = "test-alert";
@@ -656,7 +662,8 @@ function getFormData() {
     stream_type: document.getElementById("camStreamType").value,
     custom_url: document.getElementById("camCustomUrl").value,
     ptz_enabled: document.getElementById("camPtzEnabled").checked,
-    multi_lens: document.getElementById("camMultiLens") ? document.getElementById("camMultiLens").checked : false
+    multi_lens: document.getElementById("camMultiLens") ? document.getElementById("camMultiLens").checked : false,
+    motion_sensitivity: document.getElementById("camSensitivity") ? document.getElementById("camSensitivity").value : "medium"
   };
 }
 
@@ -1161,6 +1168,10 @@ function openNightModeModal() {
     soundCheck.checked = savedSound === "true";
   }
 
+  const savedSens = localStorage.getItem("night_sensitivity") || "medium";
+  const sensSelect = document.getElementById("nightSensitivitySelect");
+  if (sensSelect) sensSelect.value = savedSens;
+
   modal.classList.add("open");
 }
 
@@ -1169,18 +1180,36 @@ function closeNightModeModal() {
   if (modal) modal.classList.remove("open");
 }
 
-function startNightModeFromModal() {
+async function startNightModeFromModal() {
   const select = document.getElementById("nightCameraSelect");
   const durationSelect = document.getElementById("nightDurationSelect");
   const soundCheck = document.getElementById("nightSoundEnabled");
+  const sensSelect = document.getElementById("nightSensitivitySelect");
 
   nightSelectedCamId = select ? select.value : "ALL";
   nightDurationSec = durationSelect ? (parseInt(durationSelect.value) || 30) : 30;
   nightSoundEnabled = soundCheck ? soundCheck.checked : true;
+  const nightSensitivity = sensSelect ? sensSelect.value : "medium";
 
   localStorage.setItem("night_cam_id", nightSelectedCamId);
   localStorage.setItem("night_duration", nightDurationSec);
   localStorage.setItem("night_sound", nightSoundEnabled);
+  localStorage.setItem("night_sensitivity", nightSensitivity);
+
+  // Aplica sensibilidade imediatamente no backend
+  try {
+    const baseUrl = getStreamBaseUrl();
+    await fetch(`${baseUrl}/api/motion/config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sensitivity: nightSensitivity,
+        camera_id: (nightSelectedCamId !== "ALL" ? nightSelectedCamId : null)
+      })
+    });
+  } catch (err) {
+    console.warn("[NightMode] Erro ao sincronizar sensibilidade:", err);
+  }
 
   closeNightModeModal();
   enterNightMode();
@@ -1197,14 +1226,17 @@ async function enterNightMode() {
   if (btn) btn.classList.add("active");
   overlay.style.display = "flex";
 
-  // Atualiza etiqueta da câmera monitorada
+  // Atualiza etiqueta da câmera monitorada com a sensibilidade ativa
   const labelEl = document.getElementById("nightMonitoredCamLabel");
   if (labelEl) {
+    const savedSens = localStorage.getItem("night_sensitivity") || "medium";
+    const sensLabel = savedSens === "low" ? "Baixa" : (savedSens === "high" ? "Alta" : "Média");
     if (nightSelectedCamId === "ALL") {
-      labelEl.textContent = "Todas as Câmeras";
+      labelEl.textContent = `Todas as Câmeras • Sensibilidade: ${sensLabel}`;
     } else {
       const cam = (window.cameras || []).find((c) => c.id === nightSelectedCamId);
-      labelEl.textContent = cam ? cam.name : "Câmera Selecionada";
+      const camName = cam ? cam.name : "Câmera Selecionada";
+      labelEl.textContent = `${camName} • Sensibilidade: ${sensLabel}`;
     }
   }
 

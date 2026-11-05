@@ -16,6 +16,30 @@ from datetime import datetime
 from storage import load_cameras, build_rtsp_url
 from go2rtc_manager import start_go2rtc, stop_go2rtc
 
+SENSITIVITY_PROFILES = {
+    "low": {
+        "label": "Baixa (Apenas Pessoas e Carros)",
+        "thresh_val": 32,
+        "min_ratio": 0.018,
+        "blur_size": (9, 9),
+        "hold_time": 4.0
+    },
+    "medium": {
+        "label": "Média (Recomendado - Equilibrado)",
+        "thresh_val": 24,
+        "min_ratio": 0.008,
+        "blur_size": (7, 7),
+        "hold_time": 4.0
+    },
+    "high": {
+        "label": "Alta (Máxima Sensibilidade)",
+        "thresh_val": 16,
+        "min_ratio": 0.0035,
+        "blur_size": (5, 5),
+        "hold_time": 4.0
+    }
+}
+
 class CameraWorker:
     def __init__(self, camera):
         self.camera = camera
@@ -34,28 +58,38 @@ class CameraWorker:
         self.last_error = ""
         self.last_seen = None
 
-        # Sensor de Movimento Inteligente
+        # Sensor de Movimento Inteligente com Sensibilidade Configurável
+        self.motion_sensitivity = camera.get("motion_sensitivity", "medium")
         self.motion_detected = False
         self.last_motion_time = 0.0
         self.motion_detector_gray = None
         self.motion_frame_skip = 0
+
+    def set_motion_sensitivity(self, level):
+        if level in SENSITIVITY_PROFILES:
+            self.motion_sensitivity = level
 
     def _detect_motion(self, frame):
         if not HAS_CV2 or frame is None:
             return False
         try:
             now_ts = time.time()
+            profile = SENSITIVITY_PROFILES.get(self.motion_sensitivity, SENSITIVITY_PROFILES["medium"])
+            blur_size = profile.get("blur_size", (7, 7))
+            thresh_val = profile.get("thresh_val", 24)
+            min_ratio = profile.get("min_ratio", 0.008)
+            hold_time = profile.get("hold_time", 4.0)
 
             small = cv2.resize(frame, (160, 90), interpolation=cv2.INTER_AREA)
             gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-            gray = cv2.GaussianBlur(gray, (5, 5), 0)
+            gray = cv2.GaussianBlur(gray, blur_size, 0)
 
             if self.motion_detector_gray is None:
                 self.motion_detector_gray = gray.copy()
                 return False
 
             frame_diff = cv2.absdiff(self.motion_detector_gray, gray)
-            _, thresh = cv2.threshold(frame_diff, 16, 255, cv2.THRESH_BINARY)
+            _, thresh = cv2.threshold(frame_diff, thresh_val, 255, cv2.THRESH_BINARY)
             thresh = cv2.dilate(thresh, None, iterations=2)
             changed_pixels = cv2.countNonZero(thresh)
             ratio = changed_pixels / 14400.0  # 160 * 90
@@ -63,13 +97,13 @@ class CameraWorker:
             # Atualiza fundo de referência dinamicamente de forma suave
             self.motion_detector_gray = cv2.addWeighted(self.motion_detector_gray, 0.95, gray, 0.05, 0)
 
-            # Se mais de 0.35% da tela mudar (~50 pixels) = movimento detectado imediatamente
-            if ratio >= 0.0035:
+            # Compara com o ratio do perfil selecionado
+            if ratio >= min_ratio:
                 self.last_motion_time = now_ts
                 self.motion_detected = True
                 return True
             else:
-                self.motion_detected = (now_ts - self.last_motion_time) < 4.0
+                self.motion_detected = (now_ts - self.last_motion_time) < hold_time
                 return self.motion_detected
         except Exception:
             return False
@@ -440,6 +474,16 @@ class CameraManager:
         with self.lock:
             return self.workers.get(cam_id)
 
+    def set_motion_sensitivity(self, level, cam_id=None):
+        with self.lock:
+            if cam_id:
+                w = self.workers.get(cam_id)
+                if w:
+                    w.set_motion_sensitivity(level)
+            else:
+                for w in self.workers.values():
+                    w.set_motion_sensitivity(level)
+
     def get_motion_status(self):
         status = {}
         with self.lock:
@@ -454,7 +498,8 @@ class CameraManager:
                     "motion": is_motion,
                     "last_motion": round(last_m, 2),
                     "name": w.name,
-                    "status": w.status
+                    "status": w.status,
+                    "sensitivity": getattr(w, "motion_sensitivity", "medium")
                 }
         return status
 

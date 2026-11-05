@@ -13,6 +13,12 @@ else:
 CAMERAS_FILE = os.path.join(DATA_DIR, "cameras.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
+DEFAULT_SETTINGS = {
+    "motion_sensitivity": "medium",
+    "night_duration": 30,
+    "night_sound": True
+}
+
 _lock = threading.Lock()
 
 def _ensure_dir():
@@ -21,6 +27,40 @@ def _ensure_dir():
             os.makedirs(DATA_DIR, exist_ok=True)
     except Exception:
         pass
+
+def load_settings():
+    _ensure_dir()
+    with _lock:
+        if not os.path.exists(SETTINGS_FILE):
+            return dict(DEFAULT_SETTINGS)
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                res = dict(DEFAULT_SETTINGS)
+                res.update(data)
+                return res
+        except Exception as e:
+            print(f"[Storage] Erro ao carregar configurações: {e}")
+            return dict(DEFAULT_SETTINGS)
+
+def save_settings(settings):
+    _ensure_dir()
+    with _lock:
+        try:
+            current = dict(DEFAULT_SETTINGS)
+            if os.path.exists(SETTINGS_FILE):
+                try:
+                    with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                        current.update(json.load(f))
+                except Exception:
+                    pass
+            current.update(settings)
+            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"[Storage] Erro ao salvar configurações: {e}")
+            return False
 
 def load_cameras():
     _ensure_dir()
@@ -62,6 +102,7 @@ def add_camera(cam_data):
         "custom_url": cam_data.get("custom_url", "").strip(),
         "ptz_enabled": bool(cam_data.get("ptz_enabled", False)),
         "multi_lens": bool(cam_data.get("multi_lens", False)),
+        "motion_sensitivity": cam_data.get("motion_sensitivity", "medium"),
         "order": len(cameras),
         "created_at": datetime.now().isoformat()
     }
@@ -76,7 +117,7 @@ def update_camera(cam_id, cam_data):
     for idx, c in enumerate(cameras):
         if c["id"] == cam_id:
             for k in ["name", "host", "port", "protocol", "brand", "username", "password", 
-                      "channel", "stream_type", "custom_url", "ptz_enabled", "multi_lens", "order"]:
+                      "channel", "stream_type", "custom_url", "ptz_enabled", "multi_lens", "order", "motion_sensitivity"]:
                 if k in cam_data:
                     c[k] = cam_data[k]
             if not cam_data.get("custom_url"):

@@ -10,8 +10,8 @@ except Exception:
     HAS_CV2 = False
 
 from flask import Flask, render_template, request, jsonify, Response, send_from_directory, redirect
-from storage import load_cameras, save_cameras, add_camera, update_camera, delete_camera, get_camera, build_rtsp_url
-from camera_manager import manager
+from storage import load_cameras, save_cameras, add_camera, update_camera, delete_camera, get_camera, build_rtsp_url, load_settings, save_settings
+from camera_manager import manager, SENSITIVITY_PROFILES
 from dvrip_client import DVRIPClient
 
 try:
@@ -95,6 +95,32 @@ def download_apk():
 @app.route("/api/motion", methods=["GET"])
 def api_motion_status():
     return jsonify(manager.get_motion_status())
+
+@app.route("/api/motion/config", methods=["GET", "POST"])
+def api_motion_config():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        sensitivity = data.get("sensitivity")
+        cam_id = data.get("camera_id")
+        if sensitivity in SENSITIVITY_PROFILES:
+            manager.set_motion_sensitivity(sensitivity, cam_id)
+            if cam_id:
+                update_camera(cam_id, {"motion_sensitivity": sensitivity})
+            else:
+                save_settings({"motion_sensitivity": sensitivity})
+                cams = load_cameras()
+                for c in cams:
+                    c["motion_sensitivity"] = sensitivity
+                save_cameras(cams)
+            return jsonify({"status": "ok", "sensitivity": sensitivity, "camera_id": cam_id})
+        return jsonify({"error": "Perfil de sensibilidade inválido"}), 400
+
+    settings = load_settings()
+    profiles = {k: v["label"] for k, v in SENSITIVITY_PROFILES.items()}
+    return jsonify({
+        "current_sensitivity": settings.get("motion_sensitivity", "medium"),
+        "profiles": profiles
+    })
 
 # --- API DE CÂMERAS ---
 
