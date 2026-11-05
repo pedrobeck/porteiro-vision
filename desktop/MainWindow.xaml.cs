@@ -70,7 +70,6 @@ public partial class MainWindow : Window
 
         var statusItem = new Forms.ToolStripMenuItem("🔴 Hub Desligado") { Enabled = false };
         var openLocalItem = new Forms.ToolStripMenuItem("🌐 Abrir Painel Local", null, (s, e) => OpenLocalBrowser_Click(this, null));
-        var openCloudItem = new Forms.ToolStripMenuItem("☁️ Abrir na Nuvem (Vercel)", null, (s, e) => OpenCloudBrowser_Click(this, null!));
         var copyWifiItem = new Forms.ToolStripMenuItem("📋 Copiar Link do Tablet/Wi-Fi", null, (s, e) => CopyWifiUrl_Click(this, null));
         var showWindowItem = new Forms.ToolStripMenuItem("⚙️ Exibir Central", null, (s, e) => RestoreFromTray());
         var exitItem = new Forms.ToolStripMenuItem("🚪 Sair", null, (s, e) => FullExit());
@@ -78,7 +77,6 @@ public partial class MainWindow : Window
         menu.Items.Add(statusItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(openLocalItem);
-        menu.Items.Add(openCloudItem);
         menu.Items.Add(copyWifiItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(showWindowItem);
@@ -107,13 +105,7 @@ public partial class MainWindow : Window
             });
         };
 
-        _hub.OnTunnelReady += url =>
-        {
-            Dispatcher.Invoke(() =>
-            {
-                CloudUrlText.Text = url;
-            });
-        };
+
 
         _hub.OnStatusUpdated += status =>
         {
@@ -301,11 +293,6 @@ public partial class MainWindow : Window
         try { Process.Start(new ProcessStartInfo("http://127.0.0.1:8090") { UseShellExecute = true }); } catch { }
     }
 
-    private void OpenCloudBrowser_Click(object sender, RoutedEventArgs e)
-    {
-        try { Process.Start(new ProcessStartInfo("https://porteiro-vision.vercel.app") { UseShellExecute = true }); } catch { }
-    }
-
     private void CopyLocalUrl_Click(object sender, RoutedEventArgs e)
     {
         System.Windows.Clipboard.SetText(LocalUrlText.Text);
@@ -316,12 +303,6 @@ public partial class MainWindow : Window
     {
         System.Windows.Clipboard.SetText(WifiUrlText.Text);
         ShowCopiedFeedback("Link Wi-Fi do tablet copiado!");
-    }
-
-    private void CopyCloudUrl_Click(object sender, RoutedEventArgs e)
-    {
-        System.Windows.Clipboard.SetText(CloudUrlText.Text);
-        ShowCopiedFeedback("Link de acesso externo copiado!");
     }
 
     private void ShowCopiedFeedback(string text)

@@ -11,13 +11,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initLayoutControls();
   initModal();
   
-  // Inicializa o Supabase (usa chaves salvas ou variáveis padrão)
-  const isSbReady = initSupabase();
-  if (!isSbReady) {
-    console.log("[Supabase] Aguardando configuração de credenciais no modal.");
-  }
-
-  // Conecta ao Hub e sincroniza túnel na nuvem antes de buscar câmeras
+  // Conecta ao Hub local diretamente
   await initHubStatus();
 
   await loadCameras();
@@ -68,27 +62,16 @@ async function initHubStatus() {
 
   if (!hubPill) return;
 
-  if (isLocalEnvironment()) {
-    // 1. DENTRO DE CASA: Modo Direto 0ms
-    isHubOnline = true;
-    hubPill.style.display = "inline-flex";
-    if (hubDot) hubDot.className = "hub-dot online";
-    if (hubText) hubText.textContent = "Rede Local (0ms)";
-    if (localIpPill) localIpPill.style.display = "flex";
-  } else {
-    // 2. FORA DE CASA (VERCEL / 4G): Sincronização 100% Automática
-    if (localIpPill) localIpPill.style.display = "none";
-    hubPill.style.display = "inline-flex";
-    
-    // Busca túnel ativo do Supabase
-    await autoSyncHubFromSupabase();
-
-    // Re-verifica periodicamente para reconectar sozinho quando o PC ligar
-    setInterval(autoSyncHubFromSupabase, 15000);
-  }
+  isHubOnline = true;
+  hubPill.style.display = "inline-flex";
+  if (hubDot) hubDot.className = "hub-dot online";
+  if (hubText) hubText.textContent = "Rede Local (0ms)";
+  if (localIpPill) localIpPill.style.display = "flex";
 }
 
 async function autoSyncHubFromSupabase() {
+  return true;
+}
   if (isLocalEnvironment()) return true;
 
   const hubDot = document.getElementById("hubDot");
@@ -732,10 +715,6 @@ async function saveCameraForm() {
 
     if (res.ok) {
       closeModal();
-      // Salva também na nuvem do Supabase se o usuário estiver logado
-      if (typeof saveCameraToSupabase === "function") {
-        saveCameraToSupabase(data).catch(() => {});
-      }
       await loadCameras();
     } else {
       const err = await res.json();
@@ -758,9 +737,6 @@ async function deleteCamera(camId) {
     const res = await fetch(`${baseUrl}/api/cameras/${camId}`, { method: "DELETE" });
     if (res.ok) {
       closeModal();
-      if (typeof deleteCameraFromSupabase === "function") {
-        deleteCameraFromSupabase(camId).catch(() => {});
-      }
       await loadCameras();
     }
   } catch (err) {
