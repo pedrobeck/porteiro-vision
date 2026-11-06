@@ -17,8 +17,8 @@ public class NotificationService
     private static readonly object _initLock = new();
 
     public bool IsEnabled { get; set; } = true;
-    public bool OnlyInBackground { get; set; } = true;
-    public int CooldownSeconds { get; set; } = 20;
+    public bool OnlyInBackground { get; set; } = false;
+    public int CooldownSeconds { get; set; } = 15;
 
     public Func<bool>? IsAppInBackground { get; set; }
     public Action? OnRestoreRequested { get; set; }
@@ -86,18 +86,23 @@ public class NotificationService
     public bool ShouldNotify(string camId)
     {
         if (!IsEnabled)
+        {
+            Console.WriteLine($"[NotificationService] Notificação ignorada: serviço desativado nas configurações.");
             return false;
+        }
 
         if (OnlyInBackground && IsAppInBackground != null && !IsAppInBackground())
         {
-            // App está aberto e ativo em primeiro plano pelo usuário, não perturba com popups
+            Console.WriteLine($"[NotificationService] Notificação ignorada: app aberto em primeiro plano.");
             return false;
         }
 
         if (_lastNotificationPerCam.TryGetValue(camId, out DateTime lastTime))
         {
-            if (DateTime.UtcNow - lastTime < TimeSpan.FromSeconds(CooldownSeconds))
+            double elapsed = (DateTime.UtcNow - lastTime).TotalSeconds;
+            if (elapsed < CooldownSeconds)
             {
+                Console.WriteLine($"[NotificationService] Notificação em cooldown ({elapsed:F0}s / {CooldownSeconds}s) para câmera {camId}.");
                 return false;
             }
         }
@@ -138,38 +143,38 @@ public class NotificationService
         });
     }
 
-    public void SendTestNotification(string? customImagePath = null)
+    public bool SendTestNotification(string? customImagePath = null, string? customCamName = null)
     {
-        Task.Run(async () =>
+        try
         {
-            try
+            string? imagePath = customImagePath;
+            if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
             {
-                string? imagePath = customImagePath;
-                if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
+                // Tenta achar alguma thumbnail recente em recordings/thumbs
+                string baseDir = StorageService.ResolveBaseDir();
+                string thumbsDir = Path.Combine(baseDir, "recordings", "thumbs");
+                if (Directory.Exists(thumbsDir))
                 {
-                    // Tenta achar alguma thumbnail recente em recordings/thumbs
-                    string baseDir = StorageService.ResolveBaseDir();
-                    string thumbsDir = Path.Combine(baseDir, "recordings", "thumbs");
-                    if (Directory.Exists(thumbsDir))
+                    var latest = new DirectoryInfo(thumbsDir)
+                        .GetFiles("*.jpg")
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .FirstOrDefault();
+                    if (latest != null)
                     {
-                        var latest = new DirectoryInfo(thumbsDir)
-                            .GetFiles("*.jpg")
-                            .OrderByDescending(f => f.LastWriteTimeUtc)
-                            .FirstOrDefault();
-                        if (latest != null)
-                        {
-                            imagePath = latest.FullName;
-                        }
+                        imagePath = latest.FullName;
                     }
                 }
+            }
 
-                ShowToast("Câmera Teste (Demonstração)", "test_camera", imagePath, isTest: true);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[NotificationService] Erro no teste de notificação: {ex.Message}");
-            }
-        });
+            string camTitle = customCamName ?? "Câmera Teste (Demonstração)";
+            ShowToast(camTitle, "test_camera", imagePath, isTest: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[NotificationService] Erro no teste de notificação: {ex.Message}");
+            return false;
+        }
     }
 
     private void ShowToast(string camName, string camId, string? imagePath, bool isTest = false)

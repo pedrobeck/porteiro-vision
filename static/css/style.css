@@ -1809,6 +1809,28 @@ h1, h2, h3, h4, .brand-title, .modal-title, .standby-clock, .night-sleep-clock, 
   transform: translateY(-1px);
 }
 
+.notif-test-btn {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.notif-test-btn:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #34D399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.25);
+  transform: translateY(-1px);
+}
+
 .events-badge-count {
   background: var(--signal-rec);
   color: white;

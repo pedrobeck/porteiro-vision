@@ -20,6 +20,9 @@ public partial class MainWindow : Window
     [DllImport("psapi.dll")]
     private static extern int EmptyWorkingSet(IntPtr hwProc);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
     private readonly StorageService _storage;
     private readonly SystemMonitor _systemMonitor;
     private readonly CameraManager _cameraManager;
@@ -86,7 +89,7 @@ public partial class MainWindow : Window
         var settings = _storage.LoadSettings();
         _cameraManager.NotificationService.IsEnabled = settings.DesktopNotifications;
         _cameraManager.NotificationService.OnlyInBackground = settings.NotificationsOnlyBackground;
-        _cameraManager.NotificationService.IsAppInBackground = () => _isInBackground;
+        _cameraManager.NotificationService.IsAppInBackground = IsVisionInBackground;
         _cameraManager.NotificationService.OnRestoreRequested = () => Dispatcher.Invoke(ShowAndRestore);
         _cameraManager.NotificationService.OnOpenBrowserRequested = () => OpenBrowser($"http://127.0.0.1:{_webServer.Port}");
 
@@ -142,6 +145,27 @@ public partial class MainWindow : Window
             EmptyWorkingSet(Process.GetCurrentProcess().Handle);
         }
         catch { }
+    }
+
+    private bool IsVisionInBackground()
+    {
+        try
+        {
+            if (_isInBackground) return true;
+            if (!IsVisible) return true;
+            if (WindowState == WindowState.Minimized) return true;
+
+            var helper = new System.Windows.Interop.WindowInteropHelper(this);
+            IntPtr myHwnd = helper.Handle;
+            if (myHwnd == IntPtr.Zero) return true;
+
+            IntPtr fgHwnd = GetForegroundWindow();
+            return myHwnd != fgHwnd;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private async Task StartHubAsync()

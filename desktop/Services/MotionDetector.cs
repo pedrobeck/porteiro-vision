@@ -24,17 +24,17 @@ public class MotionDetector : IDisposable
         ["low"] = new MotionProfile
         {
             Label = "Baixa (Apenas Pessoas e Carros)",
-            ThreshVal = 32,
-            MinRatio = 0.020,
-            BlurSize = 9,
+            ThreshVal = 28,
+            MinRatio = 0.015,
+            BlurSize = 7,
             HoldTime = 4.0,
-            RequiredFrames = 3
+            RequiredFrames = 2
         },
         ["medium"] = new MotionProfile
         {
             Label = "Média (Recomendado - Equilibrado)",
-            ThreshVal = 26,
-            MinRatio = 0.012,
+            ThreshVal = 22,
+            MinRatio = 0.009,
             BlurSize = 7,
             HoldTime = 4.0,
             RequiredFrames = 2
@@ -42,11 +42,11 @@ public class MotionDetector : IDisposable
         ["high"] = new MotionProfile
         {
             Label = "Alta (Máxima Sensibilidade)",
-            ThreshVal = 18,
-            MinRatio = 0.006,
+            ThreshVal = 16,
+            MinRatio = 0.005,
             BlurSize = 5,
             HoldTime = 4.0,
-            RequiredFrames = 2
+            RequiredFrames = 1
         }
     };
 

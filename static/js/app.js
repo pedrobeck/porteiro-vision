@@ -2124,18 +2124,45 @@ async function triggerManualRecording(camId) {
   }
 }
 
+function showToast(message, duration = 3500) {
+  let toastEl = document.getElementById("visionWebToast");
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.id = "visionWebToast";
+    toastEl.style.cssText = "position: fixed; bottom: 24px; right: 24px; background: #111C33; color: #EAF2FF; border: 1px solid #3DD6F5; box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 16px rgba(61,214,245,0.25); border-radius: 10px; padding: 12px 20px; font-size: 13px; font-weight: 600; z-index: 99999; display: flex; align-items: center; gap: 10px; transform: translateY(20px); opacity: 0; transition: all 0.25s ease; pointer-events: none;";
+    document.body.appendChild(toastEl);
+  }
+
+  toastEl.innerHTML = message;
+  toastEl.style.transform = "translateY(0)";
+  toastEl.style.opacity = "1";
+
+  if (window._visionToastTimer) clearTimeout(window._visionToastTimer);
+  window._visionToastTimer = setTimeout(() => {
+    toastEl.style.transform = "translateY(20px)";
+    toastEl.style.opacity = "0";
+  }, duration);
+}
+
 async function testToastNotification() {
   try {
+    const btn = document.getElementById("notifTestBtn");
+    if (btn) btn.style.opacity = "0.5";
+    showToast("⏳ Disparando notificação nativa no Windows...");
+
     const baseUrl = getStreamBaseUrl();
     const res = await fetch(`${baseUrl}/api/notifications/test`, { method: "POST" });
     const data = await res.json();
     if (res.ok && data.success) {
-      showToast("🔔 Notificação Toast enviada ao Windows!");
+      showToast("🔔 Notificação Toast enviada ao Windows com foto!");
     } else {
-      showToast("⚠️ Falha ao disparar notificação");
+      showToast(`⚠️ ${data.message || data.error || "Falha ao disparar"}`);
     }
   } catch (err) {
-    showToast("⚠️ Erro de conexão ao testar notificação");
+    showToast("⚠️ Erro de conexão ao testar notificação: " + err.message);
+  } finally {
+    const btn = document.getElementById("notifTestBtn");
+    if (btn) btn.style.opacity = "1";
   }
 }
 

@@ -147,6 +147,7 @@ public class CameraWorker : IDisposable
                     bool moved = Motion.Detect(frame);
                     if (moved)
                     {
+                        Console.WriteLine($"[CameraWorker] Movimento detectado na câmera: {Name}");
                         byte[]? snap = null;
                         lock (_lock) { snap = _latestJpeg; }
                         if (snap == null || snap.Length == 0)

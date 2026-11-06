@@ -674,8 +674,19 @@ public class WebServer : IDisposable
 
         app.MapPost("/api/notifications/test", () =>
         {
-            _cameraManager.NotificationService.SendTestNotification();
-            return Results.Json(new { success = true, message = "Notificação de teste disparada no Windows!" });
+            bool ok = _cameraManager.NotificationService.SendTestNotification(null, "Vision - Notificação de Teste");
+            return Results.Json(new { success = ok, message = ok ? "Notificação de teste disparada no Windows!" : "Falha ao disparar notificação" });
+        });
+
+        app.MapPost("/api/notifications/test-motion/{camId}", (string camId) =>
+        {
+            var cam = _storage.GetCamera(camId);
+            if (cam == null) return Results.Json(new { error = "Câmera não encontrada" }, statusCode: 404);
+
+            var worker = _cameraManager.GetWorker(camId);
+            byte[]? snap = worker?.GetLatestJpeg();
+            _cameraManager.NotificationService.NotifyMotion(cam, snap);
+            return Results.Json(new { success = true, message = $"Simulação de movimento disparada para {cam.Name}!" });
         });
 
         // 13. WebRTC / WebSocket Proxy para go2rtc

@@ -84,5 +84,5 @@ public class SettingsConfig
     public bool DesktopNotifications { get; set; } = true;
 
     [JsonPropertyName("notifications_only_background")]
-    public bool NotificationsOnlyBackground { get; set; } = true;
+    public bool NotificationsOnlyBackground { get; set; } = false;
 }
