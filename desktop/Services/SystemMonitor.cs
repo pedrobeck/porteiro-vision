@@ -70,8 +70,7 @@ public class SystemMonitor : IDisposable
     {
         var lastCpuTime = _process.TotalProcessorTime;
         var lastTime = Stopwatch.StartNew();
-        long lastBytesRecv = GetTotalBytesReceived();
-        long lastBytesSent = GetTotalBytesSent();
+        var (lastBytesRecv, lastBytesSent) = GetVideoTrafficBytes();
 
         var memStatus = new MEMORYSTATUSEX();
         if (GlobalMemoryStatusEx(memStatus))
@@ -105,9 +104,9 @@ public class SystemMonitor : IDisposable
                     RamPercent = Math.Round((double)_process.WorkingSet64 / memStatus.ullTotalPhys * 100.0, 1);
                 }
 
-                // REDE
-                long currBytesRecv = GetTotalBytesReceived();
-                long currBytesSent = GetTotalBytesSent();
+                // REDE: Mede com precisão cirúrgica apenas os bytes reais de VÍDEO (go2rtc / câmeras / tablet)
+                // ignorando completamente downloads de outros programas do Windows (Chrome, Steam, etc.)
+                var (currBytesRecv, currBytesSent) = GetVideoTrafficBytes();
 
                 long rxDelta = Math.Max(0, currBytesRecv - lastBytesRecv);
                 long txDelta = Math.Max(0, currBytesSent - lastBytesSent);
@@ -122,38 +121,42 @@ public class SystemMonitor : IDisposable
         }
     }
 
-    private static long GetTotalBytesReceived()
-    {
-        try
-        {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up
-                            && n.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                            && !n.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase)
-                            && !n.Description.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase)
-                            && !n.Description.Contains("Multiplexor", StringComparison.OrdinalIgnoreCase)
-                            && !n.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)
-                            && !n.Name.Contains("Radmin", StringComparison.OrdinalIgnoreCase))
-                .Sum(n => n.GetIPStatistics().BytesReceived);
-        }
-        catch { return 0; }
-    }
+    private static readonly System.Net.Http.HttpClient _httpTrafficClient = new() { Timeout = TimeSpan.FromMilliseconds(800) };
 
-    private static long GetTotalBytesSent()
+    private static (long rx, long tx) GetVideoTrafficBytes()
     {
         try
         {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up
-                            && n.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                            && !n.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase)
-                            && !n.Description.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase)
-                            && !n.Description.Contains("Multiplexor", StringComparison.OrdinalIgnoreCase)
-                            && !n.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)
-                            && !n.Name.Contains("Radmin", StringComparison.OrdinalIgnoreCase))
-                .Sum(n => n.GetIPStatistics().BytesSent);
+            var res = _httpTrafficClient.GetStringAsync("http://127.0.0.1:1984/api/streams").GetAwaiter().GetResult();
+            using var doc = System.Text.Json.JsonDocument.Parse(res);
+            long rx = 0;
+            long tx = 0;
+
+            foreach (var stream in doc.RootElement.EnumerateObject())
+            {
+                if (stream.Value.TryGetProperty("producers", out var producers) && producers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var p in producers.EnumerateArray())
+                    {
+                        if (p.TryGetProperty("bytes_recv", out var b) && b.TryGetInt64(out var val))
+                            rx += val;
+                    }
+                }
+                if (stream.Value.TryGetProperty("consumers", out var consumers) && consumers.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var c in consumers.EnumerateArray())
+                    {
+                        if (c.TryGetProperty("bytes_send", out var b) && b.TryGetInt64(out var val))
+                            tx += val;
+                    }
+                }
+            }
+            return (rx, tx);
         }
-        catch { return 0; }
+        catch
+        {
+            return (0, 0);
+        }
     }
 
     private static string FormatSpeed(double kbps)
