@@ -390,6 +390,36 @@ porteiro-stream video {
   pointer-events: none;
 }
 
+/* Erradica 100% o ícone redondo de PLAY nativo do Android / Chromium */
+porteiro-stream video::-webkit-media-controls,
+porteiro-stream video::-webkit-media-controls-enclosure,
+porteiro-stream video::-webkit-media-controls-panel,
+porteiro-stream video::-webkit-media-controls-start-playback-button,
+porteiro-stream video::-webkit-media-controls-play-button,
+porteiro-stream video::-webkit-media-controls-overlay-play-button,
+video::-webkit-media-controls,
+video::-webkit-media-controls-start-playback-button,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.feed-poster {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .feed-img {
   width: 100%;
   height: 100%;

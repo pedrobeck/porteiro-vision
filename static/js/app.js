@@ -353,10 +353,12 @@ function renderGrid() {
         </div>
       `;
     } else {
+      const snapUrl = `${baseUrl}/api/snapshot/${cam.id}?t=${Date.now()}`;
       feedHtml = `
         <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
-          <porteiro-stream class="feed-video" data-id="${cam.id}" data-quality="sub" src="${wsUrl}"></porteiro-stream>
-          <img class="feed-img fallback-feed" style="display: none;" data-src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
+          <img class="feed-poster" id="poster-${cam.id}" src="${snapUrl}" alt="${escapeHtml(cam.name)}">
+          <porteiro-stream class="feed-video" data-id="${cam.id}" data-quality="sub" src="${wsUrl}" style="position: relative; z-index: 2; opacity: 0; transition: opacity 0.3s ease;"></porteiro-stream>
+          <img class="feed-img fallback-feed" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;" data-src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
           <div class="stream-protocol-badge rtc" id="proto-${cam.id}">RTC</div>
         </div>
       `;
@@ -415,6 +417,11 @@ function renderGrid() {
 
       pStream.addEventListener("streamconnected", (ev) => {
         clearTimeout(rtcTimeout);
+        pStream.style.opacity = "1";
+        const posterEl = cell.querySelector(`#poster-${cam.id}`);
+        if (posterEl) {
+          posterEl.style.zIndex = "0";
+        }
         const mode = ev.detail?.mode || "RTC";
         if (badge) {
           badge.textContent = mode;
@@ -1060,8 +1067,11 @@ function switchStandbyCamera(isInitial = false) {
 
   const standbyVideo = document.getElementById("standbyFeedVideo");
   if (standbyVideo) {
-    standbyVideo.style.display = "block";
-    standbyVideo.src = `/api/ws?src=${encodeURIComponent(nextCam.id + '_hd')}`;
+    standbyVideo.style.display = "none";
+    standbyVideo.src = `/api/ws?src=${encodeURIComponent(nextCam.id + '_sub')}`;
+    standbyVideo.addEventListener("streamconnected", () => {
+      standbyVideo.style.display = "block";
+    }, { once: true });
   }
 
   if (feedImg) {
@@ -1625,29 +1635,41 @@ function triggerNightWake(camId, camName) {
   // 1. Snapshot instantâneo (Renderiza em ~20ms da memória do Hub, eliminando 100% da tela preta!)
   if (poster) {
     poster.src = snapshotUrl;
+    poster.style.display = "block";
+    poster.style.zIndex = "2";
   }
 
-  // 2. Conecta stream WebRTC H.264 prioritário em FULL HD
+  // 2. Conecta stream WebRTC H.264 prioritário
   const wakeVideo = document.getElementById("nightWakeVideo");
   if (wakeVideo) {
-    wakeVideo.style.display = "block";
+    // Mantém vídeo oculto até conectar para que o usuário veja o snapshot imediato sem tela preta nem ícone de play!
+    wakeVideo.style.display = "none";
     wakeVideo.style.zIndex = "3";
-    wakeVideo.src = `/api/ws?src=${encodeURIComponent(camId + '_hd')}`;
+
+    wakeVideo.addEventListener("streamconnected", () => {
+      console.log("[NightWake] WebRTC conectado com sucesso, revelando vídeo ao vivo!");
+      wakeVideo.style.display = "block";
+      if (poster) poster.style.zIndex = "1";
+    }, { once: true });
+
     wakeVideo.addEventListener("streamfailed", () => {
       console.warn("[NightWake] WebRTC falhou, ativando fallback MJPEG");
+      wakeVideo.style.display = "none";
       if (feed) {
         feed.style.display = "block";
+        feed.style.zIndex = "3";
         feed.src = streamUrl;
       }
     }, { once: true });
+
+    wakeVideo.src = `/api/ws?src=${encodeURIComponent(camId + '_sub')}`;
   } else if (feed) {
     feed.style.display = "block";
-    feed.style.zIndex = "2";
+    feed.style.zIndex = "3";
     feed.style.background = "transparent";
     feed.dataset.camId = camId;
     feed.src = streamUrl;
 
-    // Se houver qualquer falha no stream na WebView, recarrega o poster para nunca ficar preto
     feed.onerror = () => {
       if (isNightAwake && poster) {
         poster.src = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
@@ -1655,15 +1677,15 @@ function triggerNightWake(camId, camName) {
     };
   }
 
-  // 3. Fallback contínuo de fotos: atualiza o poster a cada 1.2s para garantir imagem mesmo com lag de Wi-Fi
+  // 3. Fallback contínuo de fotos: atualiza o poster enquanto o vídeo ao vivo não estiver visível
   clearInterval(nightPosterInterval);
   nightPosterInterval = setInterval(() => {
-    if (isNightAwake && poster && isNightModeActive) {
+    if (isNightAwake && poster && isNightModeActive && (!wakeVideo || wakeVideo.style.display === "none")) {
       poster.src = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
-    } else {
+    } else if (!isNightAwake || !isNightModeActive) {
       clearInterval(nightPosterInterval);
     }
-  }, 1200);
+  }, 1500);
 
   // Toca alerta sonoro suave se habilitado
   if (nightSoundEnabled) {

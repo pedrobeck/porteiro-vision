@@ -28,9 +28,15 @@ export class PorteiroStream extends VideoRTC {
     super.oninit();
     if (this.video) {
       this.video.controls = false;
+      this.video.removeAttribute('controls');
       this.video.autoplay = true;
       this.video.muted = true;
+      this.video.defaultMuted = true;
       this.video.playsInline = true;
+      this.video.setAttribute('playsinline', '');
+      this.video.setAttribute('webkit-playsinline', '');
+      this.video.setAttribute('muted', '');
+      this.video.setAttribute('autoplay', '');
       this.video.style.objectFit = 'contain';
       this.video.style.width = '100%';
       this.video.style.height = '100%';

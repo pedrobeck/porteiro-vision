@@ -102,8 +102,8 @@ public class Go2RtcService
         sb.AppendLine();
         sb.AppendLine("ffmpeg:");
         sb.AppendLine("  bin: \"ffmpeg\"");
-        sb.AppendLine("  h264_cuda_sd: \"-hide_banner -v error -hwaccel cuda -hwaccel_output_format cuda -c:v h264_nvenc -preset p1 -tune ll -b:v 250k -maxrate 350k -bufsize 500k -g 50 -bf 0\"");
-        sb.AppendLine("  h264_cuda_hd: \"-hide_banner -v error -hwaccel cuda -hwaccel_output_format cuda -c:v h264_nvenc -preset p2 -tune ll -b:v 1500k -maxrate 2000k -bufsize 3000k -g 50 -bf 0\"");
+        sb.AppendLine("  \"h264/cuda\": \"-c:v h264_nvenc -b:v 1500k -maxrate 2000k -bufsize 1000k -g 30 -bf 0 -profile:v high -level:v auto -preset:v p2 -tune:v ll\"");
+        sb.AppendLine("  \"h264\": \"-c:v libx264 -b:v 1500k -maxrate 2000k -bufsize 1000k -g 30 -preset:v ultrafast -tune:v zerolatency\"");
         sb.AppendLine();
         sb.AppendLine("webrtc:");
         sb.AppendLine("  listen: \":8555\"");
@@ -127,24 +127,24 @@ public class Go2RtcService
 
             bool isIcsee = c.Brand?.ToLowerInvariant() == "icsee";
 
-            // 1. Sub-stream (SD 640x360) - Leve, limite estrito de 250 kbps
+            // 1. Sub-stream (SD 640x360) - Leve para grade contínua
             if (isIcsee)
             {
                 sb.AppendLine($"  \"{cid}_sub\":");
                 sb.AppendLine($"    - \"{subUrl}\"");
-                sb.AppendLine($"    - \"ffmpeg:{cid}_sub#video=h264_cuda_sd\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}_sub#video=h264#hardware=cuda\"");
             }
             else
             {
                 sb.AppendLine($"  \"{cid}_sub\": \"{subUrl}\"");
             }
 
-            // 2. Main-stream (HD) - Máxima resolução sob demanda com teto de 1500 kbps
+            // 2. Main-stream (HD) - Máxima resolução sob demanda
             if (isIcsee)
             {
                 sb.AppendLine($"  \"{cid}_hd\":");
                 sb.AppendLine($"    - \"{mainUrl}\"");
-                sb.AppendLine($"    - \"ffmpeg:{cid}_hd#video=h264_cuda_hd\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}_hd#video=h264#hardware=cuda\"");
             }
             else
             {
@@ -156,7 +156,7 @@ public class Go2RtcService
             {
                 sb.AppendLine($"  \"{cid}\":");
                 sb.AppendLine($"    - \"{subUrl}\"");
-                sb.AppendLine($"    - \"ffmpeg:{cid}#video=h264_cuda_sd\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}#video=h264#hardware=cuda\"");
             }
             else
             {

@@ -154,6 +154,10 @@ export class VideoRTC extends HTMLElement {
             value = 'ws' + location.origin.substring(4) + value;
         }
 
+        if (this.ws || this.pc) {
+            this.ondisconnect();
+        }
+
         this.wsURL = value;
 
         this.onconnect();
@@ -238,8 +242,15 @@ export class VideoRTC extends HTMLElement {
      */
     oninit() {
         this.video = document.createElement('video');
-        this.video.controls = true;
+        this.video.controls = false;
+        this.video.autoplay = true;
+        this.video.muted = true;
+        this.video.defaultMuted = true;
         this.video.playsInline = true;
+        this.video.setAttribute('playsinline', '');
+        this.video.setAttribute('webkit-playsinline', '');
+        this.video.setAttribute('muted', '');
+        this.video.setAttribute('autoplay', '');
         this.video.preload = 'auto';
 
         this.video.style.display = 'block'; // fix bottom margin 4px
