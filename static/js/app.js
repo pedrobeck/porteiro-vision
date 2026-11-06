@@ -727,7 +727,8 @@ function toggleStandbyMode() {
 // Pausa streams em segundo plano para liberar conexões e Wi-Fi no tablet
 function pauseGridStreams() {
   document.querySelectorAll(".camera-cell .feed-img").forEach((img) => {
-    img.src = "";
+    img.removeAttribute("src");
+    img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   });
 }
 
@@ -1243,6 +1244,16 @@ async function enterNightMode() {
   // Pausa streams do painel para economizar Wi-Fi e bateria no tablet
   pauseGridStreams();
 
+  // Notifica a central para desligar o RTSP das outras câmeras e liberar 100% do Wi-Fi
+  try {
+    const baseUrl = getStreamBaseUrl();
+    fetch(`${baseUrl}/api/night_mode/enter`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ camera_id: nightSelectedCamId })
+    }).catch(() => {});
+  } catch (err) {}
+
   // Requisita tela cheia
   try {
     if (!document.fullscreenElement) {
@@ -1301,6 +1312,12 @@ function exitNightMode() {
 
   // Retoma as câmeras do painel
   resumeGridStreams();
+
+  // Notifica a central para retomar todas as câmeras
+  try {
+    const baseUrl = getStreamBaseUrl();
+    fetch(`${baseUrl}/api/night_mode/exit`, { method: "POST" }).catch(() => {});
+  } catch (err) {}
 
   // Sai de tela cheia
   if (document.fullscreenElement) {

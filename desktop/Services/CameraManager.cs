@@ -15,6 +15,12 @@ public class CameraManager : IDisposable
     private readonly StorageService _storage;
     private readonly object _lock = new();
 
+    private bool _nightModeActive = false;
+    private string? _activeNightCamId = null;
+
+    public bool IsNightMode => _nightModeActive;
+    public string? ActiveNightCamId => _activeNightCamId;
+
     public CameraManager(StorageService storage)
     {
         _storage = storage;
@@ -138,6 +144,47 @@ public class CameraManager : IDisposable
         }
     }
 
+    public void EnterNightMode(string? selectedCamId)
+    {
+        lock (_lock)
+        {
+            _nightModeActive = true;
+            _activeNightCamId = selectedCamId;
+
+            if (string.IsNullOrEmpty(selectedCamId) || selectedCamId == "ALL")
+            {
+                Console.WriteLine("[CameraManager] Modo Noturno ativado para TODAS as câmeras.");
+                StartAll();
+                return;
+            }
+
+            Console.WriteLine($"[CameraManager] Modo Noturno ativado para a câmera '{selectedCamId}'. Pausando as demais para liberar 100% da rede Wi-Fi...");
+            var cameras = _storage.LoadCameras();
+            foreach (var cam in cameras)
+            {
+                if (cam.Id != selectedCamId)
+                {
+                    StopWorker(cam.Id);
+                }
+                else
+                {
+                    StartWorker(cam, restartMain: false);
+                }
+            }
+        }
+    }
+
+    public void ExitNightMode()
+    {
+        lock (_lock)
+        {
+            _nightModeActive = false;
+            _activeNightCamId = null;
+            Console.WriteLine("[CameraManager] Modo Noturno encerrado. Retomando todas as câmeras...");
+            StartAll();
+        }
+    }
+
     public void SetMotionSensitivity(string level, string? camId = null)
     {
         lock (_lock)
@@ -205,13 +252,17 @@ public class CameraManager : IDisposable
                     isMotion = false;
                 }
 
+                string defaultStatus = (_nightModeActive && !string.IsNullOrEmpty(_activeNightCamId) && _activeNightCamId != "ALL" && cam.Id != _activeNightCamId)
+                    ? "STANDBY NOTURNO"
+                    : "STOPPED";
+
                 statusList.Add(new CameraInfo
                 {
                     Id = cam.Id,
                     Name = cam.Name,
                     Host = cam.Host,
                     Brand = cam.Brand ?? "generic",
-                    Status = w?.Status ?? "STOPPED",
+                    Status = w?.Status ?? defaultStatus,
                     Fps = w?.Fps ?? 0.0,
                     Motion = isMotion,
                     LastSeen = w?.LastSeen?.ToString("HH:mm:ss")

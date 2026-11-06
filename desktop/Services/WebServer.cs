@@ -206,10 +206,19 @@ public class WebServer : IDisposable
         {
             using var reader = new StreamReader(ctx.Request.Body);
             string body = await reader.ReadToEndAsync();
-            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            string? sensitivity = null;
+            string? camId = null;
 
-            string? sensitivity = doc.RootElement.TryGetProperty("sensitivity", out var sProp) ? sProp.GetString() : null;
-            string? camId = doc.RootElement.TryGetProperty("camera_id", out var cProp) ? cProp.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(body);
+                    if (doc.RootElement.TryGetProperty("sensitivity", out var sProp)) sensitivity = sProp.GetString();
+                    if (doc.RootElement.TryGetProperty("camera_id", out var cProp)) camId = cProp.GetString();
+                }
+                catch { }
+            }
 
             if (sensitivity != null && MotionDetector.Profiles.ContainsKey(sensitivity))
             {
@@ -229,6 +238,52 @@ public class WebServer : IDisposable
             }
 
             return Results.Json(new { error = "Perfil de sensibilidade inválido" }, statusCode: 400);
+        });
+
+        // 6.1 API de Modo Noturno (Controle de Câmeras em Standby / Economia Total de Wi-Fi)
+        app.MapPost("/api/night_mode/enter", async (HttpContext ctx) =>
+        {
+            try
+            {
+                using var reader = new StreamReader(ctx.Request.Body);
+                string body = await reader.ReadToEndAsync();
+                string camId = "ALL";
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(body);
+                        if (doc.RootElement.TryGetProperty("camera_id", out var cProp))
+                        {
+                            camId = cProp.GetString() ?? "ALL";
+                        }
+                    }
+                    catch { }
+                }
+
+                _cameraManager.EnterNightMode(camId);
+                return Results.Json(new { status = "ok", night_mode = true, camera_id = camId });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WebServer] Erro no Modo Noturno: {ex}");
+                return Results.Json(new { error = ex.Message }, statusCode: 500);
+            }
+        });
+
+        app.MapPost("/api/night_mode/exit", () =>
+        {
+            _cameraManager.ExitNightMode();
+            return Results.Json(new { status = "ok", night_mode = false });
+        });
+
+        app.MapGet("/api/night_mode/status", () =>
+        {
+            return Results.Json(new
+            {
+                night_mode = _cameraManager.IsNightMode,
+                active_camera_id = _cameraManager.ActiveNightCamId
+            });
         });
 
         // 7. API de Câmeras
