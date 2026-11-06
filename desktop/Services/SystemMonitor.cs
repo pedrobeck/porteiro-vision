@@ -127,7 +127,13 @@ public class SystemMonitor : IDisposable
         try
         {
             return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up)
+                .Where(n => n.OperationalStatus == OperationalStatus.Up
+                            && n.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                            && !n.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase)
+                            && !n.Description.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase)
+                            && !n.Description.Contains("Multiplexor", StringComparison.OrdinalIgnoreCase)
+                            && !n.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)
+                            && !n.Name.Contains("Radmin", StringComparison.OrdinalIgnoreCase))
                 .Sum(n => n.GetIPStatistics().BytesReceived);
         }
         catch { return 0; }
@@ -138,7 +144,13 @@ public class SystemMonitor : IDisposable
         try
         {
             return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up)
+                .Where(n => n.OperationalStatus == OperationalStatus.Up
+                            && n.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                            && !n.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase)
+                            && !n.Description.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase)
+                            && !n.Description.Contains("Multiplexor", StringComparison.OrdinalIgnoreCase)
+                            && !n.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)
+                            && !n.Name.Contains("Radmin", StringComparison.OrdinalIgnoreCase))
                 .Sum(n => n.GetIPStatistics().BytesSent);
         }
         catch { return 0; }

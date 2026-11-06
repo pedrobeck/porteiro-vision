@@ -102,6 +102,8 @@ public class Go2RtcService
         sb.AppendLine();
         sb.AppendLine("ffmpeg:");
         sb.AppendLine("  bin: \"ffmpeg\"");
+        sb.AppendLine("  h264_cuda_sd: \"-hide_banner -v error -hwaccel cuda -hwaccel_output_format cuda -c:v h264_nvenc -preset p1 -tune ll -b:v 250k -maxrate 350k -bufsize 500k -g 50 -bf 0\"");
+        sb.AppendLine("  h264_cuda_hd: \"-hide_banner -v error -hwaccel cuda -hwaccel_output_format cuda -c:v h264_nvenc -preset p2 -tune ll -b:v 1500k -maxrate 2000k -bufsize 3000k -g 50 -bf 0\"");
         sb.AppendLine();
         sb.AppendLine("webrtc:");
         sb.AppendLine("  listen: \":8555\"");
@@ -125,24 +127,24 @@ public class Go2RtcService
 
             bool isIcsee = c.Brand?.ToLowerInvariant() == "icsee";
 
-            // 1. Sub-stream (SD 640x360) - Leve, baixo tráfego Wi-Fi para grade contínua
+            // 1. Sub-stream (SD 640x360) - Leve, limite estrito de 250 kbps
             if (isIcsee)
             {
                 sb.AppendLine($"  \"{cid}_sub\":");
                 sb.AppendLine($"    - \"{subUrl}\"");
-                sb.AppendLine($"    - \"ffmpeg:{cid}_sub#video=h264#hardware=cuda\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}_sub#video=h264_cuda_sd\"");
             }
             else
             {
                 sb.AppendLine($"  \"{cid}_sub\": \"{subUrl}\"");
             }
 
-            // 2. Main-stream (HD) - Máxima resolução sob demanda (foco, 1x1, tela cheia, alerta noturno)
+            // 2. Main-stream (HD) - Máxima resolução sob demanda com teto de 1500 kbps
             if (isIcsee)
             {
                 sb.AppendLine($"  \"{cid}_hd\":");
                 sb.AppendLine($"    - \"{mainUrl}\"");
-                sb.AppendLine($"    - \"ffmpeg:{cid}_hd#video=h264#hardware=cuda\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}_hd#video=h264_cuda_hd\"");
             }
             else
             {
@@ -154,7 +156,7 @@ public class Go2RtcService
             {
                 sb.AppendLine($"  \"{cid}\":");
                 sb.AppendLine($"    - \"{subUrl}\"");
-                sb.AppendLine($"    - \"ffmpeg:{cid}#video=h264#hardware=cuda\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}#video=h264_cuda_sd\"");
             }
             else
             {
