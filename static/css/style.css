@@ -1,16 +1,75 @@
-:root {
-  --bg-primary: #0a0d14;
-  --bg-secondary: #121722;
-  --bg-card: #182030;
-  --border-color: #243048;
-  --text-main: #f0f4fc;
-  --text-muted: #8b9bb4;
-  --accent-cyan: #00d2ff;
-  --accent-blue: #0070f3;
-  --accent-emerald: #00e676;
-  --accent-warn: #ffab00;
-  --accent-danger: #ff3366;
+/* ========================================================
+   TEMAS VISUAIS / ESTILOS DE FUNDO
+   ======================================================== */
+
+/* 1. PADRÃO NOVO: DARK OLED (Preto Absoluto Minimalista - Estilo UniFi Protect / Apple) */
+:root,
+[data-theme="oled"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0c10;
+  --bg-card: #0e1117;
+  --border-color: rgba(255, 255, 255, 0.09);
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --accent-cyan: #00f2fe;
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-warn: #f59e0b;
+  --accent-danger: #ef4444;
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --body-bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #000000 75%);
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* 2. CARBONO STEALTH (Textura de Centro de Operações Tático) */
+[data-theme="carbon"] {
+  --bg-primary: #0a0b0d;
+  --bg-secondary: #101216;
+  --bg-card: #15181e;
+  --border-color: rgba(255, 255, 255, 0.12);
+  --text-main: #f9fafb;
+  --text-muted: #94a3b8;
+  --accent-cyan: #38bdf8;
+  --accent-blue: #2563eb;
+  --accent-emerald: #059669;
+  --accent-warn: #d97706;
+  --accent-danger: #dc2626;
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+  --body-bg-gradient: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 24px 24px, #0a0b0d;
+}
+
+/* 3. GRAFITE FOSCO MODERNO (Minimalista Clean) */
+[data-theme="graphite"] {
+  --bg-primary: #121316;
+  --bg-secondary: #1a1b20;
+  --bg-card: #202227;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-main: #ffffff;
+  --text-muted: #a1a1aa;
+  --accent-cyan: #22d3ee;
+  --accent-blue: #60a5fa;
+  --accent-emerald: #34d399;
+  --accent-warn: #fbbf24;
+  --accent-danger: #f87171;
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --body-bg-gradient: linear-gradient(180deg, #18191e 0%, #111215 100%);
+}
+
+/* 4. MEIA-NOITE SAPPHIRE (Azul Escuro Profundo e Elegante) */
+[data-theme="midnight"] {
+  --bg-primary: #060913;
+  --bg-secondary: #0c1222;
+  --bg-card: #111a30;
+  --border-color: rgba(59, 130, 246, 0.2);
+  --text-main: #f0f6ff;
+  --text-muted: #93c5fd;
+  --accent-cyan: #00d2ff;
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-warn: #f59e0b;
+  --accent-danger: #ef4444;
+  --card-shadow: 0 8px 32px rgba(6, 9, 19, 0.8);
+  --body-bg-gradient: radial-gradient(ellipse at 50% -20%, #1e293b 0%, #060913 80%);
 }
 
 * {
@@ -21,6 +80,7 @@
 }
 
 html, body {
+  background: var(--body-bg-gradient);
   background-color: var(--bg-primary);
   color: var(--text-main);
   font-family: var(--font-family);
@@ -1576,4 +1636,48 @@ video::-webkit-media-controls-overlay-play-button {
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
   transform-origin: left center;
   transition: width 0.1s linear;
+}
+
+/* --- BOTAO DE SELECAO DE TEMA / FUNDO --- */
+.theme-pill-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.theme-pill-btn:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.06);
+}
+.theme-pill-btn:active {
+  transform: scale(0.96);
+}
+
+/* BOTAO DE QUALIDADE SD/HD */
+.btn-quality {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-quality.active-hd {
+  background: rgba(0, 210, 255, 0.2) !important;
+  color: var(--accent-cyan) !important;
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
 }

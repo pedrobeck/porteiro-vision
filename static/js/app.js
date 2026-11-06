@@ -8,6 +8,7 @@ let currentAuthMode = "login"; // 'login' ou 'register'
 let isHubOnline = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initTheme();
   initLayoutControls();
   initModal();
   
@@ -151,32 +152,7 @@ function setLayout(layout) {
   grid.className = `camera-grid layout-${layout}`;
   unfocusCamera();
 
-  // FASE 2: Ajuste inteligente de qualidade baseado no layout
-  if (layout === "1x1") {
-    const firstCell = grid.querySelector(".camera-cell");
-    if (firstCell && firstCell.dataset.id) {
-      setStreamQuality(firstCell.dataset.id, "hd");
-    }
-  } else if (layout === "hero") {
-    const cells = grid.querySelectorAll(".camera-cell");
-    cells.forEach((cell, idx) => {
-      const cid = cell.dataset.id;
-      if (!cid) return;
-      if (idx === 0) {
-        setStreamQuality(cid, "hd");
-      } else {
-        setStreamQuality(cid, "sub");
-      }
-    });
-  } else {
-    // Em auto, 2x2, 3x3: todas as câmeras ficam no sub-stream SD (economia máxima de Wi-Fi)
-    const cells = grid.querySelectorAll(".camera-cell");
-    cells.forEach((cell) => {
-      if (cell.dataset.id) {
-        setStreamQuality(cell.dataset.id, "sub");
-      }
-    });
-  }
+  // Mantém os fluxos ativos sem recarregar ou travar telas ao mudar de layout
 }
 
 // --- CARREGAMENTO E RENDERIZAÇÃO DAS CÂMERAS ---
@@ -388,6 +364,7 @@ function renderGrid() {
         </div>
         <div class="cell-actions">
           ${multiLensBtn}
+          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p detalhado)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
           <button class="action-icon-btn" title="Capturar Foto" onclick="takeSnapshot('${cam.id}', event)">📸</button>
           <button class="action-icon-btn" title="Ampliar / Tela Cheia" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
           ${!isSubLens ? `<button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
@@ -501,8 +478,8 @@ function toggleFocusCamera(camId, event) {
     cell.classList.add("focused");
     focusedCameraId = camId;
 
-    // FASE 2: Comuta a câmera em foco para HD sob demanda (1080p nítido)
-    setStreamQuality(camId, "hd");
+    // EXPANSÃO 100% INSTANTÂNEA: Mantém o fluxo atual rodando liso sem tela preta nem atraso!
+    // O usuário pode tocar no botão "SD/HD" no cabeçalho se desejar 1080p nítido sob demanda.
 
     const ptz = document.getElementById(`ptz-${camId}`);
     if (ptz) ptz.style.display = "grid";
@@ -518,10 +495,35 @@ function unfocusCamera() {
       const ptz = document.getElementById(`ptz-${prevId}`);
       if (ptz) ptz.style.display = "none";
     }
-    // FASE 2: Retorna a câmera para SD (economia contínua de Wi-Fi)
-    setStreamQuality(prevId, "sub");
     focusedCameraId = null;
   }
+}
+
+// Alterna resolução SD (ultra-rápido/leve) vs HD (1080p nítido) sob demanda sem travar expansão
+function toggleCameraQuality(camId, event) {
+  if (event) event.stopPropagation();
+  const cell = document.querySelector(`.camera-cell[data-id="${camId}"]`);
+  if (!cell) return;
+  const pStream = cell.querySelector("porteiro-stream");
+  const btn = cell.querySelector(`#btn-quality-${camId}`);
+  if (!pStream) return;
+
+  const current = pStream.dataset.quality || "sub";
+  const target = current === "sub" ? "hd" : "sub";
+
+  if (btn) {
+    btn.textContent = target === "hd" ? "HD ⏳" : "SD";
+    btn.classList.toggle("active-hd", target === "hd");
+  }
+
+  setStreamQuality(camId, target);
+
+  pStream.addEventListener("streamconnected", () => {
+    if (btn) {
+      btn.textContent = target.toUpperCase();
+      btn.classList.toggle("active-hd", target === "hd");
+    }
+  }, { once: true });
 }
 
 function toggleFullscreen(event) {
@@ -1788,3 +1790,33 @@ function refreshApp() {
 
 window.refreshApp = refreshApp;
 
+
+// --- GESTÃO DE TEMAS VISUAIS / FUNDO ---
+const THEMES = [
+  { id: 'oled', label: 'Fundo: OLED' },
+  { id: 'carbon', label: 'Fundo: Carbono' },
+  { id: 'graphite', label: 'Fundo: Grafite' },
+  { id: 'midnight', label: 'Fundo: Meia-Noite' }
+];
+
+function initTheme() {
+  const saved = localStorage.getItem("porteiro_theme") || "oled";
+  applyTheme(saved);
+}
+
+function applyTheme(themeId) {
+  document.documentElement.setAttribute("data-theme", themeId);
+  localStorage.setItem("porteiro_theme", themeId);
+  const label = document.getElementById("themePickerLabel");
+  const found = THEMES.find(t => t.id === themeId);
+  if (label && found) {
+    label.textContent = found.label;
+  }
+}
+
+function cycleTheme() {
+  const current = localStorage.getItem("porteiro_theme") || "oled";
+  const idx = THEMES.findIndex(t => t.id === current);
+  const next = THEMES[(idx + 1) % THEMES.length];
+  applyTheme(next.id);
+}

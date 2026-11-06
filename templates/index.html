@@ -35,6 +35,11 @@
         <button class="layout-btn" data-layout="hero" title="Modo Porteiro: Câmera Principal + Miniaturas">Hero</button>
       </div>
 
+      <!-- Seletor de Fundo / Tema Visual -->
+      <button class="theme-pill-btn" id="themePickerBtn" onclick="cycleTheme()" title="Trocar estilo de fundo visual (OLED, Carbono, Grafite, Meia-Noite)">
+        🎨 <span id="themePickerLabel">Fundo: OLED</span>
+      </button>
+
       <!-- IP do Servidor para Tablet -->
       <div class="server-ip-pill" id="localIpPill" title="Acesse no seu celular ou tablet por este endereço na mesma rede">
         Tablet IP: <strong>http://{{ server_ip }}:8090</strong>
