@@ -382,7 +382,7 @@ function renderGrid() {
           badge.textContent = "MJPEG";
           badge.className = "stream-protocol-badge mjpeg";
         }
-      }, 7000);
+      }, 12000);
 
       pStream.addEventListener("streamconnected", (ev) => {
         clearTimeout(rtcTimeout);
@@ -391,6 +391,7 @@ function renderGrid() {
         badge.className = "stream-protocol-badge rtc";
         pStream.style.display = "block";
         fallbackImg.style.display = "none";
+        console.log(`[Stream] WebRTC conectado com sucesso para ${cam.id}!`);
       });
 
       pStream.addEventListener("streamfailed", () => {
