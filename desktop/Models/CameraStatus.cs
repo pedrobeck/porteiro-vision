@@ -25,6 +25,9 @@ public class CameraInfo
     [JsonPropertyName("motion")]
     public bool Motion { get; set; } = false;
 
+    [JsonPropertyName("recording")]
+    public bool Recording { get; set; } = false;
+
     [JsonPropertyName("last_seen")]
     public string? LastSeen { get; set; }
 }

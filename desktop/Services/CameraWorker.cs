@@ -20,14 +20,18 @@ public class CameraWorker : IDisposable
     public DateTime? LastSeen { get; private set; }
     public MotionDetector Motion { get; } = new();
 
+    private readonly RecordingService? _recordingService;
+    public bool IsRecording => _recordingService?.IsCameraRecording(Camera.Id) ?? false;
+
     private bool _running = false;
     private Thread? _thread;
     private byte[]? _latestJpeg;
     private readonly object _lock = new();
 
-    public CameraWorker(CameraConfig camera)
+    public CameraWorker(CameraConfig camera, RecordingService? recordingService = null)
     {
         Camera = camera;
+        _recordingService = recordingService;
         Motion.Sensitivity = camera.MotionSensitivity ?? "medium";
     }
 
@@ -138,7 +142,13 @@ public class CameraWorker : IDisposable
                 motionFrameSkip++;
                 if (motionFrameSkip % 2 == 0)
                 {
-                    Motion.Detect(frame);
+                    bool moved = Motion.Detect(frame);
+                    if (moved && _recordingService != null && _recordingService.ShouldRecord(Camera.Id))
+                    {
+                        byte[]? snap = null;
+                        lock (_lock) { snap = _latestJpeg; }
+                        _recordingService.StartRecording(Camera, snap);
+                    }
                 }
 
                 // FPS

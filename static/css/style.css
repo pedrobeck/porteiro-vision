@@ -1780,3 +1780,285 @@ h1, h2, h3, h4, .brand-title, .modal-title, .standby-clock, .night-sleep-clock, 
   0%, 100% { opacity: 0.85; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.05); }
 }
+
+
+/* ========================================================
+   FASE 3: GRAVAÇÕES & LINHA DO TEMPO DE EVENTOS (MP4)
+   ======================================================== */
+
+.events-btn {
+  background: rgba(61, 214, 245, 0.1);
+  color: var(--brand);
+  border: 1px solid rgba(61, 214, 245, 0.3);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  min-height: 36px;
+  position: relative;
+}
+
+.events-btn:hover {
+  background: rgba(61, 214, 245, 0.2);
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.events-badge-count {
+  background: var(--signal-rec);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  line-height: 1.2;
+}
+
+/* Indicador de Gravação ao Vivo na Câmera (REC) */
+.cam-rec-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 90, 95, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 20;
+  box-shadow: 0 0 12px rgba(255, 90, 95, 0.6);
+  animation: pulse-rec 1.2s infinite alternate ease-in-out;
+}
+
+.cam-rec-dot {
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+@keyframes pulse-rec {
+  0% { opacity: 0.8; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1.04); }
+}
+
+/* Modal de Eventos */
+.modal-events-card {
+  max-width: 900px;
+  width: 95%;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.events-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.events-summary-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.events-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.event-card {
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.event-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(10, 18, 34, 0.8);
+}
+
+.event-thumb-box {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.event-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+  display: block;
+}
+
+.event-card:hover .event-thumb-img {
+  transform: scale(1.05);
+}
+
+.event-play-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 18, 34, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.event-card:hover .event-play-overlay {
+  background: rgba(10, 18, 34, 0.1);
+}
+
+.event-play-icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(61, 214, 245, 0.85);
+  color: #0A1222;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s ease;
+}
+
+.event-card:hover .event-play-icon {
+  transform: scale(1.15);
+  background: var(--brand);
+}
+
+.event-duration-tag {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.event-cam-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(10, 18, 34, 0.85);
+  color: var(--brand);
+  border: 1px solid rgba(61, 214, 245, 0.3);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.event-details {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.event-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.event-size-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.event-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.event-action-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.event-action-btn:hover {
+  background: rgba(61, 214, 245, 0.15);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.event-action-btn.btn-delete:hover {
+  background: rgba(255, 90, 95, 0.15);
+  border-color: var(--signal-rec);
+  color: var(--signal-rec);
+}
+
+/* Modal do Player */
+.modal-player-card {
+  max-width: 800px;
+  width: 95%;
+  background: var(--surface-1);
+}

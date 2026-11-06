@@ -15,6 +15,8 @@ public class CameraManager : IDisposable
     private readonly StorageService _storage;
     private readonly object _lock = new();
 
+    public RecordingService RecordingService { get; } = new();
+
     private bool _nightModeActive = false;
     private string? _activeNightCamId = null;
 
@@ -52,7 +54,7 @@ public class CameraManager : IDisposable
                     toStop.Add(existing);
                 }
 
-                var worker = new CameraWorker(camera);
+                var worker = new CameraWorker(camera, RecordingService);
                 worker.Start();
                 _workers[camId] = worker;
             }
@@ -80,7 +82,7 @@ public class CameraManager : IDisposable
                             StreamType = "main"
                         };
 
-                        var subWorker = new CameraWorker(subCam);
+                        var subWorker = new CameraWorker(subCam, RecordingService);
                         subWorker.Start();
                         _workers[subId] = subWorker;
                     }
@@ -221,6 +223,7 @@ public class CameraManager : IDisposable
                 result[cid] = new
                 {
                     motion = isMotion,
+                    recording = w.IsRecording,
                     last_motion = Math.Round(lastM, 2),
                     name = w.Name,
                     status = w.Status,
@@ -262,6 +265,7 @@ public class CameraManager : IDisposable
                     Status = w?.Status ?? defaultStatus,
                     Fps = w?.Fps ?? 0.0,
                     Motion = isMotion,
+                    Recording = w?.IsRecording ?? false,
                     LastSeen = w?.LastSeen?.ToString("HH:mm:ss")
                 });
 

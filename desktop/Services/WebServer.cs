@@ -568,6 +568,62 @@ public class WebServer : IDisposable
         // Token endpoint
         app.MapGet("/api/token", () => Results.Json(new { token = "local" }));
 
+        // 12.1 Gravações & Linha do Tempo de Eventos (Fase 3)
+        app.MapGet("/api/recordings", (HttpContext ctx) =>
+        {
+            string? camId = ctx.Request.Query["camera_id"].FirstOrDefault();
+            int limit = int.TryParse(ctx.Request.Query["limit"].FirstOrDefault(), out int l) ? l : 100;
+            var events = _cameraManager.RecordingService.GetEvents(camId, limit);
+            return Results.Json(events);
+        });
+
+        app.MapMethods("/api/recordings/video/{filename}", ["GET", "HEAD"], async (string filename, HttpContext ctx) =>
+        {
+            string? path = _cameraManager.RecordingService.GetVideoPath(filename);
+            if (path == null || !File.Exists(path))
+            {
+                ctx.Response.StatusCode = 404;
+                await ctx.Response.WriteAsync("Vídeo não encontrado.");
+                return;
+            }
+
+            ctx.Response.ContentType = "video/mp4";
+            ctx.Response.Headers["Accept-Ranges"] = "bytes";
+            ctx.Response.Headers["Cache-Control"] = "public, max-age=86400";
+            await ctx.Response.SendFileAsync(path);
+        });
+
+        app.MapMethods("/api/recordings/thumb/{filename}", ["GET", "HEAD"], async (string filename, HttpContext ctx) =>
+        {
+            string? path = _cameraManager.RecordingService.GetThumbPath(filename);
+            if (path == null || !File.Exists(path))
+            {
+                ctx.Response.StatusCode = 404;
+                return;
+            }
+
+            ctx.Response.ContentType = "image/jpeg";
+            ctx.Response.Headers["Cache-Control"] = "public, max-age=86400";
+            await ctx.Response.SendFileAsync(path);
+        });
+
+        app.MapDelete("/api/recordings/{id}", (string id) =>
+        {
+            bool ok = _cameraManager.RecordingService.DeleteEvent(id);
+            return ok ? Results.Json(new { success = true }) : Results.Json(new { error = "Gravação não encontrada" }, statusCode: 404);
+        });
+
+        app.MapPost("/api/recordings/trigger/{camId}", (string camId) =>
+        {
+            var cam = _storage.GetCamera(camId);
+            if (cam == null) return Results.Json(new { error = "Câmera não encontrada" }, statusCode: 404);
+
+            var worker = _cameraManager.GetWorker(camId);
+            byte[]? snap = worker?.GetLatestJpeg();
+            _cameraManager.RecordingService.StartRecording(cam, snap);
+            return Results.Json(new { success = true, message = $"Gravação manual de 15s iniciada para {cam.Name}" });
+        });
+
         // 13. WebRTC / WebSocket Proxy para go2rtc
         app.Map("/api/ws", async (HttpContext ctx) =>
         {

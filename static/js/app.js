@@ -275,6 +275,19 @@ function updateCameraStatuses(statuses) {
       if (meta) {
         meta.textContent = `${st.status} | ${st.fps || 0} FPS`;
       }
+
+      // Indicador REC de gravação ativa na câmera (Fase 3)
+      let recBadge = cell.querySelector(".cam-rec-badge");
+      if (st.recording) {
+        if (!recBadge) {
+          recBadge = document.createElement("div");
+          recBadge.className = "cam-rec-badge";
+          recBadge.innerHTML = '<span class="cam-rec-dot"></span> REC';
+          cell.appendChild(recBadge);
+        }
+      } else if (recBadge) {
+        recBadge.remove();
+      }
     }
   });
 
@@ -1838,4 +1851,229 @@ function toggleCameraFill(camId, event) {
     btn.style.borderColor = isFilled ? "var(--accent-cyan)" : "";
     btn.title = isFilled ? "Modo: Preencher Tela (clique para Ajustar)" : "Modo: Ajustar na Tela (clique para Preencher)";
   }
+}
+
+
+/* ========================================================
+   FASE 3: CONTROLLER DE GRAVAÇÕES & EVENTOS (HISTÓRICO)
+   ======================================================== */
+
+let currentEvents = [];
+let activePlayerEvent = null;
+
+async function openEventsModal() {
+  const modal = document.getElementById("eventsModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+
+  // Preenche opções de filtro com as câmeras ativas
+  const select = document.getElementById("eventsCamFilter");
+  if (select && window.cameras) {
+    const curVal = select.value;
+    select.innerHTML = '<option value="ALL">📹 Todas as Câmeras</option>';
+    window.cameras.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = `📹 ${c.name}`;
+      select.appendChild(opt);
+    });
+    if (curVal) select.value = curVal;
+  }
+
+  await loadEventsList();
+}
+
+function closeEventsModal() {
+  const modal = document.getElementById("eventsModal");
+  if (modal) modal.style.display = "none";
+}
+
+async function loadEventsList() {
+  const loading = document.getElementById("eventsLoadingState");
+  const empty = document.getElementById("eventsEmptyState");
+  const grid = document.getElementById("eventsGrid");
+  const badge = document.getElementById("eventsSummaryBadge");
+  const filter = document.getElementById("eventsCamFilter")?.value || "ALL";
+
+  if (loading) loading.style.display = "block";
+  if (empty) empty.style.display = "none";
+  if (grid) grid.innerHTML = "";
+
+  try {
+    const baseUrl = getHubBaseUrl();
+    const url = `${baseUrl}/api/recordings?camera_id=${encodeURIComponent(filter)}&limit=100&t=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const events = await res.json();
+    currentEvents = events || [];
+
+    if (loading) loading.style.display = "none";
+
+    // Atualiza contadores
+    const count = currentEvents.length;
+    let totalBytes = currentEvents.reduce((acc, ev) => acc + (ev.size_bytes || 0), 0);
+    const sizeStr = formatBytes(totalBytes);
+
+    if (badge) {
+      badge.textContent = `${count} gravação(ões) • ${sizeStr}`;
+    }
+
+    // Badge no botão superior
+    const topBadge = document.getElementById("eventsCountBadge");
+    if (topBadge) {
+      if (count > 0) {
+        topBadge.style.display = "inline-block";
+        topBadge.textContent = count > 99 ? "99+" : count;
+      } else {
+        topBadge.style.display = "none";
+      }
+    }
+
+    if (count === 0) {
+      if (empty) empty.style.display = "block";
+      return;
+    }
+
+    // Renderiza cards de eventos
+    currentEvents.forEach(ev => {
+      const card = createEventCard(ev);
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    console.error("[Events] Erro ao carregar eventos:", err);
+    if (loading) loading.style.display = "none";
+    if (empty) {
+      empty.style.display = "block";
+      empty.querySelector("h4").textContent = "Erro ao carregar gravações";
+      empty.querySelector("p").textContent = err.message;
+    }
+  }
+}
+
+function createEventCard(ev) {
+  const card = document.createElement("div");
+  card.className = "event-card";
+
+  const baseUrl = getHubBaseUrl();
+  const thumbUrl = `${baseUrl}/api/recordings/thumb/${ev.thumb_file}`;
+  const videoUrl = `${baseUrl}/api/recordings/video/${ev.video_file}`;
+
+  card.innerHTML = `
+    <div class="event-thumb-box" onclick="playEvent('${ev.id}')">
+      <img src="${thumbUrl}" class="event-thumb-img" alt="${ev.camera_name}" onerror="this.src='/static/favicon-32.png'; this.style.objectFit='contain';">
+      <div class="event-play-overlay">
+        <div class="event-play-icon">▶</div>
+      </div>
+      <div class="event-cam-tag">${ev.camera_name}</div>
+      <div class="event-duration-tag">⏱️ ${ev.duration_sec || 15}s</div>
+    </div>
+    <div class="event-details">
+      <div class="event-time-row">
+        <span>📅 ${ev.date_str}</span>
+        <span>🕒 ${ev.time_str}</span>
+      </div>
+      <div class="event-size-row">
+        <span>🎬 Clipe H.264 (.MP4)</span>
+        <span>💾 ${ev.size_str}</span>
+      </div>
+      <div class="event-actions-row">
+        <button class="event-action-btn" onclick="playEvent('${ev.id}')" title="Assistir clipe">
+          ▶️ Assistir
+        </button>
+        <a class="event-action-btn" href="${videoUrl}" download="${ev.camera_name}_${ev.date_str}_${ev.time_str}.mp4" title="Baixar clipe para o dispositivo">
+          ⬇️ Baixar
+        </a>
+        <button class="event-action-btn btn-delete" onclick="deleteEvent('${ev.id}')" title="Excluir gravação">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+function playEvent(id) {
+  const ev = currentEvents.find(e => e.id === id);
+  if (!ev) return;
+  activePlayerEvent = ev;
+
+  const modal = document.getElementById("eventPlayerModal");
+  const title = document.getElementById("eventPlayerTitle");
+  const video = document.getElementById("eventPlayerVideo");
+  const downloadBtn = document.getElementById("eventPlayerDownloadBtn");
+  const deleteBtn = document.getElementById("eventPlayerDeleteBtn");
+
+  if (!modal || !video) return;
+
+  const baseUrl = getHubBaseUrl();
+  const videoUrl = `${baseUrl}/api/recordings/video/${ev.video_file}`;
+
+  title.textContent = `📹 ${ev.camera_name} • ${ev.date_str} às ${ev.time_str} (${ev.duration_sec || 15}s)`;
+  video.src = videoUrl;
+  video.currentTime = 0;
+  video.play().catch(() => {});
+
+  if (downloadBtn) {
+    downloadBtn.href = videoUrl;
+    downloadBtn.download = `${ev.camera_name}_${ev.date_str}_${ev.time_str}.mp4`;
+  }
+
+  if (deleteBtn) {
+    deleteBtn.onclick = () => deleteEvent(ev.id, true);
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeEventPlayer() {
+  const modal = document.getElementById("eventPlayerModal");
+  const video = document.getElementById("eventPlayerVideo");
+  if (video) {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  }
+  if (modal) modal.style.display = "none";
+  activePlayerEvent = null;
+}
+
+async function deleteEvent(id, closePlayerAfter = false) {
+  if (!confirm("Tem certeza que deseja excluir esta gravação de 15s?")) return;
+
+  try {
+    const baseUrl = getHubBaseUrl();
+    const res = await fetch(`${baseUrl}/api/recordings/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      if (closePlayerAfter) closeEventPlayer();
+      await loadEventsList();
+    } else {
+      alert("Erro ao excluir gravação.");
+    }
+  } catch (err) {
+    alert("Erro na requisição: " + err.message);
+  }
+}
+
+async function triggerManualRecording(camId) {
+  try {
+    const baseUrl = getHubBaseUrl();
+    const res = await fetch(`${baseUrl}/api/recordings/trigger/${camId}`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`🎬 ${data.message || "Gravação iniciada!"}`);
+    } else {
+      showToast(`⚠️ ${data.error || "Não foi possível gravar"}`);
+    }
+  } catch (err) {
+    showToast("⚠️ Erro ao iniciar gravação manual");
+  }
+}
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 MB";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
