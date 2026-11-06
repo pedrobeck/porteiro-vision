@@ -71,7 +71,7 @@ public class CameraWorker : IDisposable
 
         while (_running)
         {
-            string url = StorageService.BuildRtspUrl(Camera);
+            string url = StorageService.BuildRtspUrl(Camera, "sub");
             string safeUrl = url.Contains('@') ? $"rtsp://***:***@{url.Split('@')[1]}" : url;
 
             Console.WriteLine($"[Worker {Id}] Conectando em {safeUrl}...");

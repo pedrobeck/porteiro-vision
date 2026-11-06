@@ -150,6 +150,33 @@ function setLayout(layout) {
   const grid = document.getElementById("cameraGrid");
   grid.className = `camera-grid layout-${layout}`;
   unfocusCamera();
+
+  // FASE 2: Ajuste inteligente de qualidade baseado no layout
+  if (layout === "1x1") {
+    const firstCell = grid.querySelector(".camera-cell");
+    if (firstCell && firstCell.dataset.id) {
+      setStreamQuality(firstCell.dataset.id, "hd");
+    }
+  } else if (layout === "hero") {
+    const cells = grid.querySelectorAll(".camera-cell");
+    cells.forEach((cell, idx) => {
+      const cid = cell.dataset.id;
+      if (!cid) return;
+      if (idx === 0) {
+        setStreamQuality(cid, "hd");
+      } else {
+        setStreamQuality(cid, "sub");
+      }
+    });
+  } else {
+    // Em auto, 2x2, 3x3: todas as câmeras ficam no sub-stream SD (economia máxima de Wi-Fi)
+    const cells = grid.querySelectorAll(".camera-cell");
+    cells.forEach((cell) => {
+      if (cell.dataset.id) {
+        setStreamQuality(cell.dataset.id, "sub");
+      }
+    });
+  }
 }
 
 // --- CARREGAMENTO E RENDERIZAÇÃO DAS CÂMERAS ---
@@ -307,7 +334,7 @@ function renderGrid() {
     cell.dataset.id = cam.id;
 
     const streamUrl = `${baseUrl}/api/stream/${cam.id}`;
-    const wsUrl = `/api/ws?src=${encodeURIComponent(cam.id)}`;
+    const wsUrl = `/api/ws?src=${encodeURIComponent(cam.id + '_sub')}`;
 
     let feedHtml = "";
     if (needsHubConfig) {
@@ -328,7 +355,7 @@ function renderGrid() {
     } else {
       feedHtml = `
         <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
-          <porteiro-stream class="feed-video" data-id="${cam.id}" src="${wsUrl}"></porteiro-stream>
+          <porteiro-stream class="feed-video" data-id="${cam.id}" data-quality="sub" src="${wsUrl}"></porteiro-stream>
           <img class="feed-img fallback-feed" style="display: none;" data-src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
           <div class="stream-protocol-badge rtc" id="proto-${cam.id}">RTC</div>
         </div>
@@ -436,6 +463,23 @@ function renderPtzJoystick(camId) {
   `;
 }
 
+// --- DUAL-STREAM: CONTROLE DE QUALIDADE (SD Contínuo vs HD sob demanda) ---
+function setStreamQuality(camId, quality) {
+  const cell = document.querySelector(`.camera-cell[data-id="${camId}"]`);
+  if (!cell) return;
+  const pStream = cell.querySelector("porteiro-stream");
+  if (!pStream) return;
+
+  const currentQuality = pStream.dataset.quality || "sub";
+  if (currentQuality === quality) return;
+
+  pStream.dataset.quality = quality;
+  const suffix = quality === "hd" ? "_hd" : "_sub";
+  const newSrc = `/api/ws?src=${encodeURIComponent(camId + suffix)}`;
+  console.log(`[DualStream] Câmera ${camId} comutada para ${quality.toUpperCase()}`);
+  pStream.src = newSrc;
+}
+
 // --- FOCO E TELA CHEIA ---
 function toggleFocusCamera(camId, event) {
   if (event) event.stopPropagation();
@@ -450,6 +494,9 @@ function toggleFocusCamera(camId, event) {
     cell.classList.add("focused");
     focusedCameraId = camId;
 
+    // FASE 2: Comuta a câmera em foco para HD sob demanda (1080p nítido)
+    setStreamQuality(camId, "hd");
+
     const ptz = document.getElementById(`ptz-${camId}`);
     if (ptz) ptz.style.display = "grid";
   }
@@ -457,12 +504,15 @@ function toggleFocusCamera(camId, event) {
 
 function unfocusCamera() {
   if (focusedCameraId) {
-    const old = document.querySelector(`.camera-cell[data-id="${focusedCameraId}"]`);
+    const prevId = focusedCameraId;
+    const old = document.querySelector(`.camera-cell[data-id="${prevId}"]`);
     if (old) {
       old.classList.remove("focused");
-      const ptz = document.getElementById(`ptz-${focusedCameraId}`);
+      const ptz = document.getElementById(`ptz-${prevId}`);
       if (ptz) ptz.style.display = "none";
     }
+    // FASE 2: Retorna a câmera para SD (economia contínua de Wi-Fi)
+    setStreamQuality(prevId, "sub");
     focusedCameraId = null;
   }
 }
@@ -789,7 +839,8 @@ function resumeGridStreams() {
     const st = cell.querySelector("porteiro-stream");
     if (st && camId) {
       st.style.display = "block";
-      st.src = `/api/ws?src=${encodeURIComponent(camId)}`;
+      st.dataset.quality = "sub";
+      st.src = `/api/ws?src=${encodeURIComponent(camId + '_sub')}`;
     }
     const img = cell.querySelector(".feed-img");
     if (img && camId && img.style.display !== "none") {
@@ -1010,7 +1061,7 @@ function switchStandbyCamera(isInitial = false) {
   const standbyVideo = document.getElementById("standbyFeedVideo");
   if (standbyVideo) {
     standbyVideo.style.display = "block";
-    standbyVideo.src = `/api/ws?src=${encodeURIComponent(nextCam.id)}`;
+    standbyVideo.src = `/api/ws?src=${encodeURIComponent(nextCam.id + '_hd')}`;
   }
 
   if (feedImg) {
@@ -1576,12 +1627,12 @@ function triggerNightWake(camId, camName) {
     poster.src = snapshotUrl;
   }
 
-  // 2. Conecta stream WebRTC H.264 prioritário
+  // 2. Conecta stream WebRTC H.264 prioritário em FULL HD
   const wakeVideo = document.getElementById("nightWakeVideo");
   if (wakeVideo) {
     wakeVideo.style.display = "block";
     wakeVideo.style.zIndex = "3";
-    wakeVideo.src = `/api/ws?src=${encodeURIComponent(camId)}`;
+    wakeVideo.src = `/api/ws?src=${encodeURIComponent(camId + '_hd')}`;
     wakeVideo.addEventListener("streamfailed", () => {
       console.warn("[NightWake] WebRTC falhou, ativando fallback MJPEG");
       if (feed) {

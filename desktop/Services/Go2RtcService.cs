@@ -120,22 +120,47 @@ public class Go2RtcService
         {
             if (string.IsNullOrWhiteSpace(c.Id)) continue;
             string cid = c.Id;
-            string rtspUrl = !string.IsNullOrWhiteSpace(c.CustomUrl)
-                ? c.CustomUrl
-                : StorageService.BuildRtspUrl(c);
+            string mainUrl = StorageService.BuildRtspUrl(c, "main");
+            string subUrl = StorageService.BuildRtspUrl(c, "sub");
 
             bool isIcsee = c.Brand?.ToLowerInvariant() == "icsee";
+
+            // 1. Sub-stream (SD 640x360) - Leve, baixo tráfego Wi-Fi para grade contínua
             if (isIcsee)
             {
-                // Suporte dual H.265 + H.264 acelerado via GPU NVENC (elimina faixa verde no Android)
+                sb.AppendLine($"  \"{cid}_sub\":");
+                sb.AppendLine($"    - \"{subUrl}\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}_sub#video=h264#hardware=cuda\"");
+            }
+            else
+            {
+                sb.AppendLine($"  \"{cid}_sub\": \"{subUrl}\"");
+            }
+
+            // 2. Main-stream (HD) - Máxima resolução sob demanda (foco, 1x1, tela cheia, alerta noturno)
+            if (isIcsee)
+            {
+                sb.AppendLine($"  \"{cid}_hd\":");
+                sb.AppendLine($"    - \"{mainUrl}\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}_hd#video=h264#hardware=cuda\"");
+            }
+            else
+            {
+                sb.AppendLine($"  \"{cid}_hd\": \"{mainUrl}\"");
+            }
+
+            // 3. Identificador padrão {cid} - Aponta para o Sub-stream por padrão (economia total)
+            if (isIcsee)
+            {
                 sb.AppendLine($"  \"{cid}\":");
-                sb.AppendLine($"    - \"{rtspUrl}\"");
+                sb.AppendLine($"    - \"{subUrl}\"");
                 sb.AppendLine($"    - \"ffmpeg:{cid}#video=h264#hardware=cuda\"");
             }
             else
             {
-                sb.AppendLine($"  \"{cid}\": \"{rtspUrl}\"");
+                sb.AppendLine($"  \"{cid}\": \"{subUrl}\"");
             }
+
             hasStreams = true;
 
             // Se for iCSee multi-lente cadastrada

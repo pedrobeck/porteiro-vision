@@ -242,9 +242,6 @@ public class StorageService
 
     public static string BuildRtspUrl(CameraConfig camera, string? streamTypeOverride = null)
     {
-        if (!string.IsNullOrWhiteSpace(camera.CustomUrl))
-            return camera.CustomUrl;
-
         string brand = (camera.Brand ?? "generic").ToLowerInvariant();
         string host = string.IsNullOrWhiteSpace(camera.Host) ? "127.0.0.1" : camera.Host;
         int port = camera.Port > 0 ? camera.Port : 554;
@@ -252,17 +249,37 @@ public class StorageService
         string pwd = camera.Password ?? "";
         int ch = camera.Channel > 0 ? camera.Channel : 1;
         string stream = streamTypeOverride ?? camera.StreamType ?? "sub";
-        int streamIdx = stream == "main" ? 0 : 1;
+        int streamIdx = (stream == "main" || stream == "0") ? 0 : 1;
 
-        string auth = !string.IsNullOrEmpty(user) ? $"{user}:{pwd}@" : "";
-
-        return brand switch
+        // Se a marca for conhecida e temos o host, gera dinamicamente para o tipo de stream solicitado (main ou sub)
+        if (brand != "generic" && !string.IsNullOrWhiteSpace(camera.Host))
         {
-            "icsee" => $"rtsp://{auth}{host}:{port}/user={user}&pwd={pwd}&channel={ch}&stream={streamIdx}.sdp",
-            "intelbras" => $"rtsp://{auth}{host}:{port}/cam/realmonitor?channel={ch}&subtype={streamIdx}",
-            "tapo" => $"rtsp://{auth}{host}:{port}/{(streamIdx == 0 ? "stream1" : "stream2")}",
-            "hikvision" => $"rtsp://{auth}{host}:{port}/Streaming/Channels/{(streamIdx == 0 ? $"{ch}01" : $"{ch}02")}",
-            _ => $"rtsp://{auth}{host}:{port}/live/ch{streamIdx}"
-        };
+            string auth = !string.IsNullOrEmpty(user) ? $"{user}:{pwd}@" : "";
+            return brand switch
+            {
+                "icsee" => $"rtsp://{auth}{host}:{port}/user={user}&pwd={pwd}&channel={ch}&stream={streamIdx}.sdp",
+                "intelbras" => $"rtsp://{auth}{host}:{port}/cam/realmonitor?channel={ch}&subtype={streamIdx}",
+                "tapo" => $"rtsp://{auth}{host}:{port}/{(streamIdx == 0 ? "stream1" : "stream2")}",
+                "hikvision" => $"rtsp://{auth}{host}:{port}/Streaming/Channels/{(streamIdx == 0 ? $"{ch}01" : $"{ch}02")}",
+                _ => $"rtsp://{auth}{host}:{port}/live/ch{streamIdx}"
+            };
+        }
+
+        // Se tem CustomUrl customizada manualmente:
+        if (!string.IsNullOrWhiteSpace(camera.CustomUrl))
+        {
+            if (streamIdx == 1) // Solicitação de Sub-stream
+            {
+                string u = camera.CustomUrl;
+                if (u.Contains("/stream1")) return u.Replace("/stream1", "/stream2");
+                if (u.Contains("stream=0.sdp")) return u.Replace("stream=0.sdp", "stream=1.sdp");
+                if (u.Contains("subtype=0")) return u.Replace("subtype=0", "subtype=1");
+                return u;
+            }
+            return camera.CustomUrl;
+        }
+
+        string defaultAuth = !string.IsNullOrEmpty(user) ? $"{user}:{pwd}@" : "";
+        return $"rtsp://{defaultAuth}{host}:{port}/live/ch{streamIdx}";
     }
 }
