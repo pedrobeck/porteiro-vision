@@ -103,7 +103,7 @@ public class RecordingService
 
         if (_lastRecordingStart.TryGetValue(camId, out DateTime lastStart))
         {
-            if (DateTime.UtcNow - lastStart < TimeSpan.FromSeconds(25))
+            if (DateTime.UtcNow - lastStart < TimeSpan.FromSeconds(30))
                 return false;
         }
 
@@ -159,14 +159,14 @@ public class RecordingService
         }
 
         // 2. Gravação de 15s via ffmpeg a partir do RTSP do go2rtc (0% CPU - stream copy)
-        // Tenta primeiro o fluxo HD
-        string streamUrl = $"rtsp://127.0.0.1:8554/{camera.Id}_hd";
+        // Utiliza o sub-stream que já está ativo em RAM, eliminando 100% de oscilações de encoder no firmware da câmera
+        string streamUrl = $"rtsp://127.0.0.1:8554/{camera.Id}_sub";
         bool ok = await RunFfmpegRecordAsync(streamUrl, videoPath, 15);
 
-        // Se o HD falhar (ex: câmera em reinicialização), tenta o sub-stream leve
         if (!ok || !File.Exists(videoPath) || new FileInfo(videoPath).Length < 1000)
         {
-            streamUrl = $"rtsp://127.0.0.1:8554/{camera.Id}_sub";
+            // Fallback para HD apenas se sub falhar
+            streamUrl = $"rtsp://127.0.0.1:8554/{camera.Id}_hd";
             ok = await RunFfmpegRecordAsync(streamUrl, videoPath, 15);
         }
 

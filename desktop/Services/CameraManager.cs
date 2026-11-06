@@ -172,6 +172,11 @@ public class CameraManager : IDisposable
                     StartWorker(cam, restartMain: false);
                 }
             }
+
+            foreach (var w in _workers.Values)
+            {
+                w.Motion.Reset();
+            }
         }
     }
 
