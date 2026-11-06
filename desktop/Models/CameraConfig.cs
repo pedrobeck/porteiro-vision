@@ -79,4 +79,10 @@ public class SettingsConfig
 
     [JsonPropertyName("night_sound")]
     public bool NightSound { get; set; } = true;
+
+    [JsonPropertyName("desktop_notifications")]
+    public bool DesktopNotifications { get; set; } = true;
+
+    [JsonPropertyName("notifications_only_background")]
+    public bool NotificationsOnlyBackground { get; set; } = true;
 }

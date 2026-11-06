@@ -629,6 +629,55 @@ public class WebServer : IDisposable
             return Results.Json(new { success = true, message = $"Gravação manual de 15s iniciada para {cam.Name}" });
         });
 
+        // 12.1 Notificações Nativas do Windows (Toast)
+        app.MapGet("/api/notifications/status", () =>
+        {
+            var settings = _storage.LoadSettings();
+            return Results.Json(new
+            {
+                enabled = _cameraManager.NotificationService.IsEnabled,
+                only_background = _cameraManager.NotificationService.OnlyInBackground,
+                cooldown_seconds = _cameraManager.NotificationService.CooldownSeconds
+            });
+        });
+
+        app.MapPost("/api/notifications/toggle", async (HttpContext ctx) =>
+        {
+            using var reader = new StreamReader(ctx.Request.Body);
+            string body = await reader.ReadToEndAsync();
+            var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            var settings = _storage.LoadSettings();
+
+            if (doc.RootElement.TryGetProperty("enabled", out var enElem))
+            {
+                bool en = enElem.GetBoolean();
+                _cameraManager.NotificationService.IsEnabled = en;
+                settings.DesktopNotifications = en;
+            }
+
+            if (doc.RootElement.TryGetProperty("only_background", out var obElem))
+            {
+                bool ob = obElem.GetBoolean();
+                _cameraManager.NotificationService.OnlyInBackground = ob;
+                settings.NotificationsOnlyBackground = ob;
+            }
+
+            _storage.SaveSettings(settings);
+
+            return Results.Json(new
+            {
+                status = "ok",
+                enabled = _cameraManager.NotificationService.IsEnabled,
+                only_background = _cameraManager.NotificationService.OnlyInBackground
+            });
+        });
+
+        app.MapPost("/api/notifications/test", () =>
+        {
+            _cameraManager.NotificationService.SendTestNotification();
+            return Results.Json(new { success = true, message = "Notificação de teste disparada no Windows!" });
+        });
+
         // 13. WebRTC / WebSocket Proxy para go2rtc
         app.Map("/api/ws", async (HttpContext ctx) =>
         {

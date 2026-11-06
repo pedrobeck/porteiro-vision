@@ -362,6 +362,19 @@
           </div>
         </div>
 
+        <!-- Notificações Toast do Windows (Fase 4) -->
+        <div class="form-group" style="margin-bottom: 18px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="nightToastEnabled" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">
+              🖥️ Notificação na Área de Trabalho (Windows Toast) com foto
+            </span>
+          </label>
+          <div style="font-size: 11px; color: var(--text-muted); margin-left: 28px; margin-top: 2px;">
+            Exibe alerta nativo do Windows com foto ao detectar movimento quando o Vision estiver minimizado.
+          </div>
+        </div>
+
         <!-- Botões de Ação -->
         <div style="display: flex; gap: 8px; margin-top: 20px;">
           <button type="button" class="btn-secondary" onclick="closeNightModeModal()" style="flex: 1;">
@@ -397,6 +410,9 @@
           </select>
           <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="loadEventsList()" title="Recarregar lista">
             🔄 Atualizar
+          </button>
+          <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="testToastNotification()" title="Testar Notificação Nativa do Windows">
+            🔔 Testar Toast
           </button>
         </div>
         <div id="eventsSummaryBadge" class="events-summary-pill">

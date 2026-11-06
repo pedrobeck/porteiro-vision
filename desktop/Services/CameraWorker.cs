@@ -21,6 +21,7 @@ public class CameraWorker : IDisposable
     public MotionDetector Motion { get; } = new();
 
     private readonly RecordingService? _recordingService;
+    private readonly NotificationService? _notificationService;
     public bool IsRecording => _recordingService?.IsCameraRecording(Camera.Id) ?? false;
 
     private bool _running = false;
@@ -28,10 +29,11 @@ public class CameraWorker : IDisposable
     private byte[]? _latestJpeg;
     private readonly object _lock = new();
 
-    public CameraWorker(CameraConfig camera, RecordingService? recordingService = null)
+    public CameraWorker(CameraConfig camera, RecordingService? recordingService = null, NotificationService? notificationService = null)
     {
         Camera = camera;
         _recordingService = recordingService;
+        _notificationService = notificationService;
         Motion.Sensitivity = camera.MotionSensitivity ?? "medium";
     }
 
@@ -143,11 +145,21 @@ public class CameraWorker : IDisposable
                 if (motionFrameSkip % 2 == 0)
                 {
                     bool moved = Motion.Detect(frame);
-                    if (moved && _recordingService != null && _recordingService.ShouldRecord(Camera.Id))
+                    if (moved)
                     {
                         byte[]? snap = null;
                         lock (_lock) { snap = _latestJpeg; }
-                        _recordingService.StartRecording(Camera, snap);
+                        if (snap == null || snap.Length == 0)
+                        {
+                            Cv2.ImEncode(".jpg", frame, out snap, new ImageEncodingParam(ImwriteFlags.JpegQuality, 55));
+                        }
+
+                        if (_recordingService != null && _recordingService.ShouldRecord(Camera.Id))
+                        {
+                            _recordingService.StartRecording(Camera, snap);
+                        }
+
+                        _notificationService?.NotifyMotion(Camera, snap);
                     }
                 }
 

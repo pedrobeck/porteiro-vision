@@ -264,9 +264,12 @@
                 <Grid VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <CheckBox x:Name="MinimizeToTrayCheck" Content="Minimizar para a bandeja ao fechar (X)" Foreground="#CBD5E1"
-                                  IsChecked="True" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                                  IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0"/>
                         <CheckBox x:Name="StartWithWindowsCheck" Content="Iniciar com o Windows" Foreground="#CBD5E1"
-                                  VerticalAlignment="Center" Click="StartWithWindowsCheck_Click"/>
+                                  VerticalAlignment="Center" Click="StartWithWindowsCheck_Click" Margin="0,0,16,0"/>
+                        <CheckBox x:Name="DesktopNotificationsCheck" Content="Notificações Windows (Toast)" Foreground="#CBD5E1"
+                                  IsChecked="True" VerticalAlignment="Center" Click="DesktopNotificationsCheck_Click" Margin="0,0,14,0"/>
+                        <Button Style="{StaticResource ModernBtn}" Content="🔔 Testar Toast" Padding="8,3" FontSize="11" Click="TestToast_Click"/>
                     </StackPanel>
 
                     <TextBlock x:Name="FooterStatus" HorizontalAlignment="Right" Text="Pronto." Foreground="#64748B" FontSize="12" VerticalAlignment="Center"/>

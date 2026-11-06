@@ -27,6 +27,7 @@ public partial class MainWindow : Window
 
     private Forms.NotifyIcon? _trayIcon;
     private bool _isRunning = false;
+    private volatile bool _isInBackground = false;
 
     // Buffer de logs limitado para impedir consumo de memória
     private readonly Queue<string> _logBuffer = new();
@@ -80,6 +81,29 @@ public partial class MainWindow : Window
 
         SetupTrayIcon();
         StartWithWindowsCheck.IsChecked = AutoStartHelper.IsAutoStartEnabled();
+
+        // Configuração de Notificações Nativas do Windows (Toast)
+        var settings = _storage.LoadSettings();
+        _cameraManager.NotificationService.IsEnabled = settings.DesktopNotifications;
+        _cameraManager.NotificationService.OnlyInBackground = settings.NotificationsOnlyBackground;
+        _cameraManager.NotificationService.IsAppInBackground = () => _isInBackground;
+        _cameraManager.NotificationService.OnRestoreRequested = () => Dispatcher.Invoke(ShowAndRestore);
+        _cameraManager.NotificationService.OnOpenBrowserRequested = () => OpenBrowser($"http://127.0.0.1:{_webServer.Port}");
+
+        DesktopNotificationsCheck.IsChecked = settings.DesktopNotifications;
+
+        Activated += (s, e) => _isInBackground = false;
+        Deactivated += (s, e) => _isInBackground = true;
+        StateChanged += (s, e) =>
+        {
+            if (WindowState == WindowState.Minimized)
+                _isInBackground = true;
+        };
+        IsVisibleChanged += (s, e) =>
+        {
+            if (!IsVisible)
+                _isInBackground = true;
+        };
 
         // Redireciona Console.Out para a UI de logs
         var writer = new ConsoleLogRedirector(Log);
@@ -394,8 +418,9 @@ public partial class MainWindow : Window
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Abrir Painel", null, (s, e) => ShowAndRestore());
         menu.Items.Add("Abrir no Navegador", null, (s, e) => OpenBrowser($"http://127.0.0.1:{_webServer.Port}"));
+        menu.Items.Add("Testar Notificação (Toast)", null, (s, e) => _cameraManager.NotificationService.SendTestNotification());
         menu.Items.Add("-");
-        menu.Items.Add("Sair do Porteiro Vision", null, (s, e) => ExitApplication());
+        menu.Items.Add("Sair do Vision", null, (s, e) => ExitApplication());
         _trayIcon.ContextMenuStrip = menu;
 
         _trayIcon.DoubleClick += (s, e) => ShowAndRestore();
@@ -404,8 +429,13 @@ public partial class MainWindow : Window
     private void ShowAndRestore()
     {
         Show();
-        WindowState = WindowState.Normal;
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
         Activate();
+        Topmost = true;
+        Topmost = false;
+        Focus();
+        _isInBackground = false;
     }
 
     private async void ExitApplication()
@@ -461,9 +491,28 @@ public partial class MainWindow : Window
         FooterStatus.Text = enable ? "Início automático ativado." : "Início automático desativado.";
     }
 
+    private void DesktopNotificationsCheck_Click(object sender, RoutedEventArgs e)
+    {
+        bool enable = DesktopNotificationsCheck.IsChecked == true;
+        _cameraManager.NotificationService.IsEnabled = enable;
+
+        var settings = _storage.LoadSettings();
+        settings.DesktopNotifications = enable;
+        _storage.SaveSettings(settings);
+
+        FooterStatus.Text = enable ? "Notificações Toast ativadas." : "Notificações Toast desativadas.";
+    }
+
+    private void TestToast_Click(object sender, RoutedEventArgs e)
+    {
+        _cameraManager.NotificationService.SendTestNotification();
+        FooterStatus.Text = "Notificação de teste disparada!";
+    }
+
     private void MinimizeBtn_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
+        _isInBackground = true;
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
@@ -471,6 +520,7 @@ public partial class MainWindow : Window
         if (MinimizeToTrayCheck.IsChecked == true)
         {
             Hide();
+            _isInBackground = true;
             TrimMemory();
         }
         else

@@ -1330,6 +1330,12 @@ function openNightModeModal() {
     recordCheck.checked = savedRecord !== null ? (savedRecord === "true") : true;
   }
 
+  const savedToast = localStorage.getItem("night_toast_enabled");
+  const toastCheck = document.getElementById("nightToastEnabled");
+  if (toastCheck) {
+    toastCheck.checked = savedToast !== null ? (savedToast === "true") : true;
+  }
+
   modal.classList.add("open");
 }
 
@@ -1349,13 +1355,26 @@ async function startNightModeFromModal() {
   nightSoundEnabled = soundCheck ? soundCheck.checked : true;
   const recordCheck = document.getElementById("nightRecordEnabled");
   nightRecordEnabled = recordCheck ? recordCheck.checked : true;
+  const toastCheck = document.getElementById("nightToastEnabled");
+  const nightToastEnabled = toastCheck ? toastCheck.checked : true;
   const nightSensitivity = sensSelect ? sensSelect.value : "medium";
 
   localStorage.setItem("night_cam_id", nightSelectedCamId);
   localStorage.setItem("night_duration", nightDurationSec);
   localStorage.setItem("night_sound", nightSoundEnabled);
   localStorage.setItem("night_record_enabled", nightRecordEnabled);
+  localStorage.setItem("night_toast_enabled", nightToastEnabled);
   localStorage.setItem("night_sensitivity", nightSensitivity);
+
+  // Sincroniza configuração de notificações Windows
+  try {
+    const baseUrl = getStreamBaseUrl();
+    await fetch(`${baseUrl}/api/notifications/toggle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: nightToastEnabled })
+    });
+  } catch { }
 
   // Aplica sensibilidade imediatamente no backend
   try {
@@ -2102,6 +2121,21 @@ async function triggerManualRecording(camId) {
     }
   } catch (err) {
     showToast("⚠️ Erro ao iniciar gravação manual");
+  }
+}
+
+async function testToastNotification() {
+  try {
+    const baseUrl = getStreamBaseUrl();
+    const res = await fetch(`${baseUrl}/api/notifications/test`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast("🔔 Notificação Toast enviada ao Windows!");
+    } else {
+      showToast("⚠️ Falha ao disparar notificação");
+    }
+  } catch (err) {
+    showToast("⚠️ Erro de conexão ao testar notificação");
   }
 }
 
