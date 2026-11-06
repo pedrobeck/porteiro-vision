@@ -372,23 +372,27 @@ function renderGrid() {
     const fallbackImg = cell.querySelector(".fallback-feed");
     const badge = cell.querySelector(`#proto-${cam.id}`);
 
-    if (pStream && fallbackImg && badge) {
+    if (pStream && fallbackImg) {
       let rtcTimeout = setTimeout(() => {
         if (pStream.style.display !== "none" && (!pStream.video || pStream.video.readyState === 0)) {
           console.warn(`[Stream] Timeout WebRTC para ${cam.id}, ativando fallback MJPEG`);
           pStream.style.display = "none";
           fallbackImg.src = fallbackImg.dataset.src;
           fallbackImg.style.display = "block";
-          badge.textContent = "MJPEG";
-          badge.className = "stream-protocol-badge mjpeg";
+          if (badge) {
+            badge.textContent = "MJPEG";
+            badge.className = "stream-protocol-badge mjpeg";
+          }
         }
       }, 12000);
 
       pStream.addEventListener("streamconnected", (ev) => {
         clearTimeout(rtcTimeout);
         const mode = ev.detail?.mode || "RTC";
-        badge.textContent = mode;
-        badge.className = "stream-protocol-badge rtc";
+        if (badge) {
+          badge.textContent = mode;
+          badge.className = "stream-protocol-badge rtc";
+        }
         pStream.style.display = "block";
         fallbackImg.style.display = "none";
         console.log(`[Stream] WebRTC conectado com sucesso para ${cam.id}!`);
@@ -399,8 +403,10 @@ function renderGrid() {
         pStream.style.display = "none";
         fallbackImg.src = fallbackImg.dataset.src;
         fallbackImg.style.display = "block";
-        badge.textContent = "MJPEG";
-        badge.className = "stream-protocol-badge mjpeg";
+        if (badge) {
+          badge.textContent = "MJPEG";
+          badge.className = "stream-protocol-badge mjpeg";
+        }
       });
     }
 
