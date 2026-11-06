@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -21,14 +20,20 @@ public partial class MainWindow : Window
     [DllImport("psapi.dll")]
     private static extern int EmptyWorkingSet(IntPtr hwProc);
 
-    private readonly HubManager _hub = new();
+    private readonly StorageService _storage;
+    private readonly SystemMonitor _systemMonitor;
+    private readonly CameraManager _cameraManager;
+    private readonly WebServer _webServer;
+
     private Forms.NotifyIcon? _trayIcon;
-    private bool _isExplicitExit = false;
+    private bool _isRunning = false;
 
     // Buffer de logs limitado para impedir consumo de memória
     private readonly Queue<string> _logBuffer = new();
     private const int MaxLogBufferLines = 80;
     private bool _logUpdatePending = false;
+
+    private DispatcherTimer? _uiTimer;
     private DispatcherTimer? _memoryTrimTimer;
 
     // Pincéis estáticos congelados (Freeze) para zero alocação de memória no WPF
@@ -49,7 +54,7 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush TitleBrush = CreateFrozenBrush(241, 245, 249);
     private static readonly SolidColorBrush SubtitleBrush = CreateFrozenBrush(148, 163, 184);
 
-    private sealed class CameraCardUi
+    public sealed class CameraCardUi
     {
         public Border Container = null!;
         public Ellipse Dot = null!;
@@ -59,100 +64,293 @@ public partial class MainWindow : Window
         public TextBlock StatusText = null!;
     }
 
-    // Cache de cards para nunca destruir e recriar elementos na tela
     private readonly Dictionary<string, CameraCardUi> _cameraCardCache = new();
 
     public MainWindow()
     {
-        App.Trace("MainWindow constructor entered");
         InitializeComponent();
-        App.Trace("MainWindow InitializeComponent finished");
-        SetupTrayIcon();
-        App.Trace("MainWindow SetupTrayIcon finished");
-        SetupHubEvents();
-        App.Trace("MainWindow SetupHubEvents finished");
 
-        // Carrega configurações salvas
+        _storage = new StorageService();
+        _systemMonitor = new SystemMonitor();
+        _cameraManager = new CameraManager(_storage);
+        _webServer = new WebServer(_storage, _cameraManager, _systemMonitor);
+
+        LocalUrlText.Text = $"http://127.0.0.1:{_webServer.Port}";
+        WifiUrlText.Text = $"http://{_webServer.LocalIp}:{_webServer.Port}";
+
+        SetupTrayIcon();
         StartWithWindowsCheck.IsChecked = AutoStartHelper.IsAutoStartEnabled();
 
-        // Limpeza periódica de memória (Garbage Collection + Windows WorkingSet Trim)
+        // Redireciona Console.Out para a UI de logs
+        var writer = new ConsoleLogRedirector(Log);
+        Console.SetOut(writer);
+
+        // Timer de atualização da interface (2,5s)
+        _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        _uiTimer.Tick += (s, e) => UpdateUi();
+
+        // Limpeza periódica de memória a cada 45s
         _memoryTrimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
         _memoryTrimTimer.Tick += (s, e) => TrimMemory();
         _memoryTrimTimer.Start();
 
-        // Inicia a central de câmeras automaticamente ao abrir o aplicativo
         Loaded += async (s, e) =>
         {
-            App.Trace("MainWindow.Loaded event fired");
-            var args = Environment.GetCommandLineArgs();
-            if (args.Length > 1 && args[1].Contains("--minimized"))
-            {
-                App.Trace("MainWindow minimizing to tray on launch");
-                Hide();
-                TrimMemory();
-            }
-            await _hub.StartAsync();
-            App.Trace("MainWindow _hub.StartAsync finished");
+            await StartHubAsync();
+            _uiTimer.Start();
         };
     }
 
-    public static void TrimMemory()
+    private sealed class ConsoleLogRedirector : TextWriter
+    {
+        private readonly Action<string> _logAction;
+        public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+        public ConsoleLogRedirector(Action<string> logAction) => _logAction = logAction;
+        public override void WriteLine(string? value) { if (!string.IsNullOrEmpty(value)) _logAction(value); }
+    }
+
+    private void TrimMemory()
     {
         try
         {
-            GC.Collect(2, GCCollectionMode.Forced, false, false);
+            GC.Collect(2, GCCollectionMode.Forced, true);
+            GC.WaitForPendingFinalizers();
             EmptyWorkingSet(Process.GetCurrentProcess().Handle);
         }
         catch { }
     }
 
-    private void SetupTrayIcon()
+    private async Task StartHubAsync()
     {
-        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "icon.ico");
-        Icon icon;
-        if (System.IO.File.Exists(iconPath))
+        if (_isRunning) return;
+
+        Log("[Hub C#] Iniciando central Porteiro Vision 100% C# nativo...");
+        SetState(true);
+
+        try
         {
-            icon = new Icon(iconPath);
+            _cameraManager.StartAll();
+            await _webServer.StartAsync();
+            _isRunning = true;
+
+            Log($"[Hub C#] Servidor Kestrel ativo na porta {_webServer.Port}!");
+            Log($"[Hub C#] Acesso Local: http://127.0.0.1:{_webServer.Port}");
+            Log($"[Hub C#] Acesso Tablet: http://{_webServer.LocalIp}:{_webServer.Port}");
+            FooterStatus.Text = "Central C# ativa e transmitindo.";
+        }
+        catch (Exception ex)
+        {
+            Log($"[Hub C#] ERRO ao iniciar central: {ex.Message}");
+            SetState(false);
+            FooterStatus.Text = "Erro ao iniciar central.";
+        }
+    }
+
+    private async Task StopHubAsync()
+    {
+        if (!_isRunning) return;
+
+        Log("[Hub C#] Parando central...");
+        _isRunning = false;
+        SetState(false);
+
+        await _webServer.StopAsync();
+        _cameraManager.Dispose();
+
+        Log("[Hub C#] Central desligada.");
+        FooterStatus.Text = "Central parada.";
+    }
+
+    private void SetState(bool running)
+    {
+        _isRunning = running;
+
+        if (running)
+        {
+            TopStatusDot.Fill = DotOnline;
+            TopStatusText.Text = "HUB ONLINE (100% C#)";
+            TopStatusText.Foreground = DotOnline;
+            TopStatusBadge.Background = BadgeOnline;
+
+            MainActionBtn.Background = CreateFrozenBrush(239, 68, 68);
+            MainActionBtn.Content = "⏹ PARAR HUB DE CÂMERAS";
+            HubSubtitle.Text = "Central de vídeo C# ativa. Câmeras transmitindo sem necessidade de Python.";
         }
         else
         {
-            icon = SystemIcons.Shield;
+            TopStatusDot.Fill = DotOffline;
+            TopStatusText.Text = "HUB DESLIGADO";
+            TopStatusText.Foreground = DotOffline;
+            TopStatusBadge.Background = BadgeOffline;
+
+            MainActionBtn.Background = DotOnline;
+            MainActionBtn.Content = "▶ INICIAR HUB DE CÂMERAS";
+            HubSubtitle.Text = "O servidor local está pronto para ser iniciado. Clique no botão ao lado para ligar as câmeras.";
         }
-
-        _trayIcon = new Forms.NotifyIcon
-        {
-            Icon = icon,
-            Text = "Porteiro Vision Hub",
-            Visible = true
-        };
-
-        var menu = new Forms.ContextMenuStrip();
-
-        var statusItem = new Forms.ToolStripMenuItem("🔴 Hub Desligado") { Enabled = false };
-        var openLocalItem = new Forms.ToolStripMenuItem("🌐 Abrir Painel Local", null, (s, e) => OpenLocalBrowser_Click(this, null));
-        var copyWifiItem = new Forms.ToolStripMenuItem("📋 Copiar Link do Tablet/Wi-Fi", null, (s, e) => CopyWifiUrl_Click(this, null));
-        var showWindowItem = new Forms.ToolStripMenuItem("⚙️ Exibir Central", null, (s, e) => RestoreFromTray());
-        var exitItem = new Forms.ToolStripMenuItem("🚪 Sair", null, (s, e) => FullExit());
-
-        menu.Items.Add(statusItem);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(openLocalItem);
-        menu.Items.Add(copyWifiItem);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(showWindowItem);
-        menu.Items.Add(exitItem);
-
-        _trayIcon.ContextMenuStrip = menu;
-        _trayIcon.DoubleClick += (s, e) => RestoreFromTray();
     }
 
-    private void SetupHubEvents()
+    private void UpdateUi()
     {
-        _hub.OnLog += msg =>
+        if (!_isRunning) return;
+
+        // Telemetria
+        var stats = _systemMonitor.GetStats();
+        CpuText.Text = $"{stats.CpuPercent:F1} %";
+        RamText.Text = stats.RamStr;
+        NetText.Text = stats.NetDownStr;
+
+        // Câmeras
+        var cameras = _cameraManager.GetAllStatus();
+        int onlineCount = cameras.Count(c => c.Status == "ONLINE");
+        ActiveCamsText.Text = $"{onlineCount} / {cameras.Count} Online";
+
+        UpdateCameraCards(cameras);
+    }
+
+    private void UpdateCameraCards(List<CameraInfo> cameras)
+    {
+        if (cameras.Count == 0)
         {
-            Dispatcher.Invoke(() =>
+            if (_cameraCardCache.Count == 0)
             {
-                _logBuffer.Enqueue(msg);
+                CamerasPanel.Children.Clear();
+                CamerasPanel.Children.Add(new TextBlock
+                {
+                    Text = "Nenhuma câmera cadastrada.",
+                    Foreground = CreateFrozenBrush(100, 116, 139),
+                    FontStyle = FontStyles.Italic,
+                    Margin = new Thickness(0, 10, 0, 0)
+                });
+            }
+            return;
+        }
+
+        var incomingIds = new HashSet<string>(cameras.Select(c => c.Id));
+
+        var toRemove = _cameraCardCache.Keys.Where(k => !incomingIds.Contains(k)).ToList();
+        foreach (var id in toRemove)
+        {
+            CamerasPanel.Children.Remove(_cameraCardCache[id].Container);
+            _cameraCardCache.Remove(id);
+        }
+
+        if (CamerasPanel.Children.Count > 0 && CamerasPanel.Children[0] is TextBlock tb && tb.FontStyle == FontStyles.Italic)
+        {
+            CamerasPanel.Children.Clear();
+        }
+
+        foreach (var cam in cameras)
+        {
+            bool isOnline = cam.Status == "ONLINE";
+            string fpsStr = cam.Fps > 0 ? $"{cam.Fps:F1} FPS" : "-- FPS";
+
+            if (_cameraCardCache.TryGetValue(cam.Id, out var ui))
+            {
+                ui.Dot.Fill = isOnline ? DotOnline : DotOffline;
+                ui.Container.BorderBrush = isOnline ? BorderOnline : BorderOffline;
+                ui.Title.Text = cam.Name;
+                ui.Subtitle.Text = $"{cam.Brand?.ToUpperInvariant()} • {cam.Host}";
+                ui.StatusBadge.Background = isOnline ? BadgeOnline : BadgeOffline;
+                ui.StatusText.Text = isOnline ? $"ONLINE ({fpsStr})" : cam.Status;
+                ui.StatusText.Foreground = isOnline ? DotOnline : DotOffline;
+            }
+            else
+            {
+                var newUi = CreateCameraCard(cam, isOnline, fpsStr);
+                _cameraCardCache[cam.Id] = newUi;
+                CamerasPanel.Children.Add(newUi.Container);
+            }
+        }
+    }
+
+    private CameraCardUi CreateCameraCard(CameraInfo cam, bool isOnline, string fpsStr)
+    {
+        var card = new Border
+        {
+            Background = CardBg,
+            CornerRadius = new CornerRadius(8),
+            BorderThickness = new Thickness(1),
+            BorderBrush = isOnline ? BorderOnline : BorderOffline,
+            Padding = new Thickness(12, 10, 12, 10),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var left = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var dot = new Ellipse
+        {
+            Width = 10,
+            Height = 10,
+            Fill = isOnline ? DotOnline : DotOffline,
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        left.Children.Add(dot);
+
+        var info = new StackPanel();
+        var title = new TextBlock
+        {
+            Text = cam.Name,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 13,
+            Foreground = TitleBrush
+        };
+        var subtitle = new TextBlock
+        {
+            Text = $"{cam.Brand?.ToUpperInvariant()} • {cam.Host}",
+            FontSize = 11,
+            Foreground = SubtitleBrush,
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        info.Children.Add(title);
+        info.Children.Add(subtitle);
+        left.Children.Add(info);
+        Grid.SetColumn(left, 0);
+        grid.Children.Add(left);
+
+        var badge = new Border
+        {
+            Background = isOnline ? BadgeOnline : BadgeOffline,
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 4, 8, 4),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var stText = new TextBlock
+        {
+            Text = isOnline ? $"ONLINE ({fpsStr})" : cam.Status,
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = isOnline ? DotOnline : DotOffline
+        };
+        badge.Child = stText;
+        Grid.SetColumn(badge, 1);
+        grid.Children.Add(badge);
+
+        card.Child = grid;
+
+        return new CameraCardUi
+        {
+            Container = card,
+            Dot = dot,
+            Title = title,
+            Subtitle = subtitle,
+            StatusBadge = badge,
+            StatusText = stText
+        };
+    }
+
+    private void Log(string message)
+    {
+        string line = $"[{DateTime.Now:HH:mm:ss}] {message}";
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+        {
+            lock (_logBuffer)
+            {
+                _logBuffer.Enqueue(line);
                 while (_logBuffer.Count > MaxLogBufferLines)
                 {
                     _logBuffer.Dequeue();
@@ -161,283 +359,111 @@ public partial class MainWindow : Window
                 if (!_logUpdatePending)
                 {
                     _logUpdatePending = true;
-                    Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
                     {
-                        _logUpdatePending = false;
-                        LogsTextBox.Text = string.Join(Environment.NewLine, _logBuffer);
-                        LogsTextBox.ScrollToEnd();
-                    }));
+                        lock (_logBuffer)
+                        {
+                            LogsTextBox.Text = string.Join(Environment.NewLine, _logBuffer);
+                            _logUpdatePending = false;
+                        }
+                        LogScrollViewer.ScrollToEnd();
+                    });
                 }
-            });
-        };
-
-        _hub.OnStateChanged += isRunning =>
-        {
-            Dispatcher.Invoke(() =>
-            {
-                UpdateUiState(isRunning);
-            });
-        };
-
-        _hub.OnStatusUpdated += status =>
-        {
-            Dispatcher.Invoke(() =>
-            {
-                UpdateTelemetryAndCameras(status);
-            });
-        };
+            }
+        });
     }
 
-    private void UpdateUiState(bool isRunning)
+    private void SetupTrayIcon()
     {
-        if (isRunning)
+        _trayIcon = new Forms.NotifyIcon
         {
-            TopStatusBadge.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 16, 185, 129));
-            TopStatusDot.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129));
-            TopStatusText.Text = "HUB ONLINE";
-            TopStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129));
+            Text = "Porteiro Vision Hub (100% C#)",
+            Visible = true
+        };
 
-            MainActionBtn.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68));
-            MainActionBtn.Content = "⏹ PARAR HUB DE CÂMERAS";
-
-            HubSubtitle.Text = "A central está online. O servidor de vídeo e detecção noturna estão ativos.";
-            FooterStatus.Text = "Hub de streaming ativo na porta 8090.";
-
-            if (_trayIcon?.ContextMenuStrip?.Items[0] is Forms.ToolStripMenuItem item)
-            {
-                item.Text = "🟢 Hub Online";
-            }
+        string iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "icon.ico");
+        if (File.Exists(iconPath))
+        {
+            _trayIcon.Icon = new System.Drawing.Icon(iconPath);
         }
         else
         {
-            TopStatusBadge.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 41, 59));
-            TopStatusDot.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68));
-            TopStatusText.Text = "HUB DESLIGADO";
-            TopStatusText.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68));
-
-            MainActionBtn.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129));
-            MainActionBtn.Content = "▶ INICIAR HUB DE CÂMERAS";
-
-            HubSubtitle.Text = "O servidor local está pronto para ser iniciado. Clique no botão ao lado para ligar as câmeras.";
-            FooterStatus.Text = "Pronto.";
-
-            ActiveCamsText.Text = "0 Online";
-            CpuText.Text = "-- %";
-            RamText.Text = "-- GB";
-            NetText.Text = "-- MB/s";
-
-            if (_trayIcon?.ContextMenuStrip?.Items[0] is Forms.ToolStripMenuItem item)
-            {
-                item.Text = "🔴 Hub Desligado";
-            }
+            _trayIcon.Icon = System.Drawing.SystemIcons.Application;
         }
+
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add("Abrir Painel", null, (s, e) => ShowAndRestore());
+        menu.Items.Add("Abrir no Navegador", null, (s, e) => OpenBrowser($"http://127.0.0.1:{_webServer.Port}"));
+        menu.Items.Add("-");
+        menu.Items.Add("Sair do Porteiro Vision", null, (s, e) => ExitApplication());
+        _trayIcon.ContextMenuStrip = menu;
+
+        _trayIcon.DoubleClick += (s, e) => ShowAndRestore();
     }
 
-    private void UpdateTelemetryAndCameras(HubStatusResponse status)
+    private void ShowAndRestore()
     {
-        // Atualiza URLs
-        if (!string.IsNullOrEmpty(status.ServerIp))
-        {
-            WifiUrlText.Text = $"http://{status.ServerIp}:8090";
-        }
-
-        // Atualiza Telemetria
-        if (status.System != null)
-        {
-            CpuText.Text = $"{status.System.CpuPercent:F1} %";
-            RamText.Text = !string.IsNullOrEmpty(status.System.RamStr) ? status.System.RamStr : $"{status.System.RamUsedMb:F0} MB";
-            NetText.Text = status.System.NetDownStr;
-        }
-
-        int onlineCount = 0;
-        if (status.Cameras != null)
-        {
-            var presentIds = new HashSet<string>();
-            foreach (var cam in status.Cameras)
-            {
-                presentIds.Add(cam.Id);
-                bool isOnline = cam.Status == "ONLINE";
-                if (isOnline) onlineCount++;
-
-                if (_cameraCardCache.TryGetValue(cam.Id, out var existing))
-                {
-                    // Atualiza em lugar existente sem realocar nada
-                    existing.Title.Text = cam.Name;
-                    existing.Subtitle.Text = $"{cam.Brand.ToUpper()} • IP: {cam.Host} • {cam.Fps:F1} FPS";
-                    existing.StatusText.Text = cam.Status;
-                    existing.StatusText.Foreground = isOnline ? DotOnline : DotOffline;
-                    existing.StatusBadge.Background = isOnline ? BadgeOnline : BadgeOffline;
-                    existing.Dot.Fill = isOnline ? DotOnline : DotOffline;
-                    existing.Container.BorderBrush = isOnline ? BorderOnline : BorderOffline;
-                }
-                else
-                {
-                    if (_cameraCardCache.Count == 0)
-                    {
-                        CamerasPanel.Children.Clear();
-                    }
-                    var cardUi = BuildCameraCard(cam, isOnline);
-                    _cameraCardCache[cam.Id] = cardUi;
-                    CamerasPanel.Children.Add(cardUi.Container);
-                }
-            }
-
-            var removed = _cameraCardCache.Keys.Where(k => !presentIds.Contains(k)).ToList();
-            foreach (var rk in removed)
-            {
-                CamerasPanel.Children.Remove(_cameraCardCache[rk].Container);
-                _cameraCardCache.Remove(rk);
-            }
-        }
-
-        ActiveCamsText.Text = $"{onlineCount} Online";
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
     }
 
-    private CameraCardUi BuildCameraCard(CameraInfo cam, bool isOnline)
+    private async void ExitApplication()
     {
-        var border = new Border
-        {
-            Background = CardBg,
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(12, 10, 12, 10),
-            Margin = new Thickness(0, 0, 0, 8),
-            BorderThickness = new Thickness(1),
-            BorderBrush = isOnline ? BorderOnline : BorderOffline
-        };
+        _trayIcon?.Dispose();
+        _trayIcon = null;
 
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        await StopHubAsync();
+        _systemMonitor.Dispose();
 
-        var left = new StackPanel { Orientation = System.Windows.Controls.Orientation.Vertical };
-        var titlePanel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
-
-        var dot = new System.Windows.Shapes.Ellipse
-        {
-            Width = 8,
-            Height = 8,
-            Fill = isOnline ? DotOnline : DotOffline,
-            Margin = new Thickness(0, 0, 6, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        var title = new TextBlock
-        {
-            Text = cam.Name,
-            FontWeight = FontWeights.Bold,
-            FontSize = 13,
-            Foreground = TitleBrush,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        titlePanel.Children.Add(dot);
-        titlePanel.Children.Add(title);
-
-        var subtitle = new TextBlock
-        {
-            Text = $"{cam.Brand.ToUpper()} • IP: {cam.Host} • {cam.Fps:F1} FPS",
-            FontSize = 11,
-            Foreground = SubtitleBrush,
-            Margin = new Thickness(14, 2, 0, 0)
-        };
-
-        left.Children.Add(titlePanel);
-        left.Children.Add(subtitle);
-
-        var statusBadge = new Border
-        {
-            Background = isOnline ? BadgeOnline : BadgeOffline,
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 4, 8, 4),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        var statusText = new TextBlock
-        {
-            Text = cam.Status,
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Foreground = isOnline ? DotOnline : DotOffline
-        };
-        statusBadge.Child = statusText;
-
-        Grid.SetColumn(left, 0);
-        Grid.SetColumn(statusBadge, 1);
-        grid.Children.Add(left);
-        grid.Children.Add(statusBadge);
-
-        border.Child = grid;
-
-        return new CameraCardUi
-        {
-            Container = border,
-            Dot = dot,
-            Title = title,
-            Subtitle = subtitle,
-            StatusBadge = statusBadge,
-            StatusText = statusText
-        };
+        System.Windows.Application.Current.Shutdown();
     }
 
+    // --- EVENTOS DE BOTÕES ---
     private async void MainActionBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_hub.IsRunning)
-        {
-            await _hub.StopAsync();
-        }
+        if (_isRunning)
+            await StopHubAsync();
         else
-        {
-            await _hub.StartAsync();
-        }
+            await StartHubAsync();
     }
 
-    private void OpenLocalBrowser_Click(object sender, RoutedEventArgs? e)
+    private void OpenLocalBrowser_Click(object sender, RoutedEventArgs e)
     {
-        try { Process.Start(new ProcessStartInfo("http://127.0.0.1:8090") { UseShellExecute = true }); } catch { }
+        OpenBrowser($"http://127.0.0.1:{_webServer.Port}");
     }
 
     private void CopyLocalUrl_Click(object sender, RoutedEventArgs e)
     {
-        System.Windows.Clipboard.SetText(LocalUrlText.Text);
-        ShowCopiedFeedback("Link local copiado!");
+        System.Windows.Clipboard.SetText($"http://127.0.0.1:{_webServer.Port}");
+        FooterStatus.Text = "Link local copiado!";
     }
 
-    private void CopyWifiUrl_Click(object sender, RoutedEventArgs? e)
+    private void CopyWifiUrl_Click(object sender, RoutedEventArgs e)
     {
-        System.Windows.Clipboard.SetText(WifiUrlText.Text);
-        ShowCopiedFeedback("Link Wi-Fi do tablet copiado!");
-    }
-
-    private void ShowCopiedFeedback(string text)
-    {
-        FooterStatus.Text = text;
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        timer.Tick += (s, e) =>
-        {
-            FooterStatus.Text = _hub.IsRunning ? "Hub de streaming ativo na porta 8090." : "Pronto.";
-            timer.Stop();
-        };
-        timer.Start();
+        System.Windows.Clipboard.SetText($"http://{_webServer.LocalIp}:{_webServer.Port}");
+        FooterStatus.Text = "Link do Wi-Fi copiado!";
     }
 
     private void ClearLogs_Click(object sender, RoutedEventArgs e)
     {
-        _logBuffer.Clear();
-        LogsTextBox.Clear();
-        TrimMemory();
+        lock (_logBuffer)
+        {
+            _logBuffer.Clear();
+            LogsTextBox.Clear();
+        }
     }
 
     private void StartWithWindowsCheck_Click(object sender, RoutedEventArgs e)
     {
         bool enable = StartWithWindowsCheck.IsChecked == true;
         AutoStartHelper.SetAutoStart(enable);
-        ShowCopiedFeedback(enable ? "Iniciar com o Windows: Ativado!" : "Iniciar com o Windows: Desativado.");
+        FooterStatus.Text = enable ? "Início automático ativado." : "Início automático desativado.";
     }
 
     private void MinimizeBtn_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
-        TrimMemory();
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
@@ -446,43 +472,19 @@ public partial class MainWindow : Window
         {
             Hide();
             TrimMemory();
-            _trayIcon?.ShowBalloonTip(2000, "Porteiro Vision", "A central está rodando em segundo plano na bandeja.", Forms.ToolTipIcon.Info);
         }
         else
         {
-            FullExit();
+            ExitApplication();
         }
     }
 
-    private void RestoreFromTray()
+    private static void OpenBrowser(string url)
     {
-        Show();
-        WindowState = WindowState.Normal;
-        Activate();
-    }
-
-    private async void FullExit()
-    {
-        App.Trace("MainWindow.FullExit called");
-        _isExplicitExit = true;
-        _trayIcon?.Dispose();
-        await _hub.StopAsync();
-        System.Windows.Application.Current.Shutdown();
-    }
-
-    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
-    {
-        App.Trace($"MainWindow.OnClosing called: _isExplicitExit={_isExplicitExit}, MinimizeToTray={MinimizeToTrayCheck.IsChecked}");
-        if (!_isExplicitExit && MinimizeToTrayCheck.IsChecked == true)
+        try
         {
-            e.Cancel = true;
-            Hide();
-            TrimMemory();
-            _trayIcon?.ShowBalloonTip(2000, "Porteiro Vision", "A central continuará funcionando em segundo plano.", Forms.ToolTipIcon.Info);
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
-        else
-        {
-            base.OnClosing(e);
-        }
+        catch { }
     }
 }
