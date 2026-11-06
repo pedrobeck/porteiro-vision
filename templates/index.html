@@ -355,6 +355,12 @@
           <span>Vigiando: <strong id="nightMonitoredCamLabel">Câmera Garagem</strong></span>
         </div>
 
+        <!-- Telemetria de Consumo de Rede em Tempo Real no Modo Noturno -->
+        <div class="night-sleep-net-pill" id="nightSleepNetPill" style="margin-top: 10px; font-size: 13px; color: #94A3B8; display: inline-flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.6); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">
+          <span style="color: #38BDF8;">📡 Tráfego Wi-Fi:</span>
+          <span id="nightSleepNetText">Câmera ↓ -- KB/s • Tablet ↑ 0 KB/s (Em Repouso)</span>
+        </div>
+
         <div class="night-sleep-hint">
           A tela acenderá imediatamente se houver movimento
         </div>
@@ -483,6 +489,6 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=3.4"></script>
+  <script src="/static/js/app.js?v=3.5"></script>
 </body>
 </html>

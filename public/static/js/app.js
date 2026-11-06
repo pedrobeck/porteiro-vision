@@ -1386,11 +1386,30 @@ function forceNightSleep() {
 
 function startNightMotionPolling() {
   clearInterval(nightPollInterval);
+  let nightNetSampleCounter = 0;
 
   const checkMotion = async () => {
     if (!isNightModeActive) return;
     try {
       const baseUrl = getStreamBaseUrl();
+
+      // Amostra telemetria de tráfego de rede a cada 3 segundos
+      nightNetSampleCounter++;
+      if (nightNetSampleCounter % 4 === 0) {
+        try {
+          const sRes = await fetch(`${baseUrl}/api/status?t=${Date.now()}`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const netTextEl = document.getElementById("nightSleepNetText");
+            if (netTextEl && sData.system) {
+              const camDown = sData.system.net_down_str || "0 KB/s";
+              const tabletUp = isNightAwake ? (sData.system.net_up_str || "0 KB/s") : "0 KB/s (Em Repouso)";
+              netTextEl.textContent = `Câmera ↓ ${camDown} • Tablet ↑ ${tabletUp}`;
+            }
+          }
+        } catch (_) {}
+      }
+
       const res = await fetch(`${baseUrl}/api/motion?t=${Date.now()}`);
       if (!res.ok) return;
       const motionData = await res.json();
