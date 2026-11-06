@@ -143,21 +143,23 @@ public class CameraManager : IDisposable
         }
     }
 
-    public void EnterNightMode(string? selectedCamId)
+    public void EnterNightMode(string? selectedCamId, bool recordEvents = true)
     {
         lock (_lock)
         {
             _nightModeActive = true;
             _activeNightCamId = selectedCamId;
+            RecordingService.AutoRecordEnabled = recordEvents;
+
+            Console.WriteLine($"[CameraManager] Modo Vigia ativado (Câmera: {selectedCamId ?? "ALL"}, Gravação Automática: {recordEvents})");
 
             if (string.IsNullOrEmpty(selectedCamId) || selectedCamId == "ALL")
             {
-                Console.WriteLine("[CameraManager] Modo Noturno ativado para TODAS as câmeras.");
                 StartAll();
                 return;
             }
 
-            Console.WriteLine($"[CameraManager] Modo Noturno ativado para a câmera '{selectedCamId}'. Pausando as demais para liberar 100% da rede Wi-Fi...");
+            Console.WriteLine($"[CameraManager] Pausando câmeras secundárias para liberar 100% da rede Wi-Fi...");
             var cameras = _storage.LoadCameras();
             foreach (var cam in cameras)
             {
@@ -179,7 +181,8 @@ public class CameraManager : IDisposable
         {
             _nightModeActive = false;
             _activeNightCamId = null;
-            Console.WriteLine("[CameraManager] Modo Noturno encerrado. Retomando todas as câmeras...");
+            RecordingService.AutoRecordEnabled = true;
+            Console.WriteLine("[CameraManager] Modo Noturno/Vigia encerrado. Retomando todas as câmeras e gravação normal...");
             StartAll();
         }
     }

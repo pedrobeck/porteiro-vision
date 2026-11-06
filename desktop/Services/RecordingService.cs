@@ -22,6 +22,8 @@ public class RecordingService
     private readonly ConcurrentDictionary<string, DateTime> _lastRecordingStart = new();
     private readonly ConcurrentDictionary<string, bool> _activeRecordings = new();
 
+    public bool AutoRecordEnabled { get; set; } = true;
+
     public RecordingService()
     {
         string baseDir = StorageService.ResolveBaseDir();
@@ -93,6 +95,9 @@ public class RecordingService
 
     public bool ShouldRecord(string camId)
     {
+        if (!AutoRecordEnabled)
+            return false;
+
         if (_activeRecordings.TryGetValue(camId, out bool active) && active)
             return false;
 

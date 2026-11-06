@@ -260,6 +260,7 @@ public class WebServer : IDisposable
                 using var reader = new StreamReader(ctx.Request.Body);
                 string body = await reader.ReadToEndAsync();
                 string camId = "ALL";
+                bool recordEvents = true;
                 if (!string.IsNullOrWhiteSpace(body))
                 {
                     try
@@ -269,12 +270,16 @@ public class WebServer : IDisposable
                         {
                             camId = cProp.GetString() ?? "ALL";
                         }
+                        if (doc.RootElement.TryGetProperty("record_events", out var rProp))
+                        {
+                            recordEvents = rProp.GetBoolean();
+                        }
                     }
                     catch { }
                 }
 
-                _cameraManager.EnterNightMode(camId);
-                return Results.Json(new { status = "ok", night_mode = true, camera_id = camId });
+                _cameraManager.EnterNightMode(camId, recordEvents);
+                return Results.Json(new { status = "ok", night_mode = true, camera_id = camId, record_events = recordEvents });
             }
             catch (Exception ex)
             {

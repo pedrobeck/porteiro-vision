@@ -1271,6 +1271,7 @@ let isNightAwake = false;
 let nightSelectedCamId = "ALL";
 let nightDurationSec = 30;
 let nightSoundEnabled = true;
+let nightRecordEnabled = true;
 let nightPollInterval = null;
 let nightWakeTimer = null;
 let nightClockInterval = null;
@@ -1323,6 +1324,12 @@ function openNightModeModal() {
   const sensSelect = document.getElementById("nightSensitivitySelect");
   if (sensSelect) sensSelect.value = savedSens;
 
+  const savedRecord = localStorage.getItem("night_record_enabled");
+  const recordCheck = document.getElementById("nightRecordEnabled");
+  if (recordCheck) {
+    recordCheck.checked = savedRecord !== null ? (savedRecord === "true") : true;
+  }
+
   modal.classList.add("open");
 }
 
@@ -1340,11 +1347,14 @@ async function startNightModeFromModal() {
   nightSelectedCamId = select ? select.value : "ALL";
   nightDurationSec = durationSelect ? (parseInt(durationSelect.value) || 30) : 30;
   nightSoundEnabled = soundCheck ? soundCheck.checked : true;
+  const recordCheck = document.getElementById("nightRecordEnabled");
+  nightRecordEnabled = recordCheck ? recordCheck.checked : true;
   const nightSensitivity = sensSelect ? sensSelect.value : "medium";
 
   localStorage.setItem("night_cam_id", nightSelectedCamId);
   localStorage.setItem("night_duration", nightDurationSec);
   localStorage.setItem("night_sound", nightSoundEnabled);
+  localStorage.setItem("night_record_enabled", nightRecordEnabled);
   localStorage.setItem("night_sensitivity", nightSensitivity);
 
   // Aplica sensibilidade imediatamente no backend
@@ -1394,13 +1404,32 @@ async function enterNightMode() {
   // Pausa streams do painel para economizar Wi-Fi e bateria no tablet
   pauseGridStreams();
 
-  // Notifica a central para desligar o RTSP das outras câmeras e liberar 100% do Wi-Fi
+  // Atualiza etiqueta de gravação (REC) no painel de descanso noturno
+  const recPill = document.getElementById("nightSleepRecPill");
+  if (recPill) {
+    if (nightRecordEnabled) {
+      recPill.textContent = "REC: ATIVO";
+      recPill.style.color = "var(--brand)";
+      recPill.style.borderColor = "rgba(61, 214, 245, 0.3)";
+      recPill.style.background = "rgba(61, 214, 245, 0.15)";
+    } else {
+      recPill.textContent = "REC: DESATIVADO";
+      recPill.style.color = "var(--text-muted)";
+      recPill.style.borderColor = "rgba(255, 255, 255, 0.1)";
+      recPill.style.background = "rgba(255, 255, 255, 0.05)";
+    }
+  }
+
+  // Notifica a central para desligar o RTSP das outras câmeras e configurar se deve gravar eventos
   try {
     const baseUrl = getStreamBaseUrl();
     fetch(`${baseUrl}/api/night_mode/enter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ camera_id: nightSelectedCamId })
+      body: JSON.stringify({
+        camera_id: nightSelectedCamId,
+        record_events: nightRecordEnabled
+      })
     }).catch(() => {});
   } catch (err) {}
 
@@ -1631,6 +1660,11 @@ function triggerNightWake(camId, camName) {
 
   isNightAwake = true;
   if (nameEl) nameEl.textContent = (camName || "GARAGEM").toUpperCase();
+
+  const wakeRecBadge = document.getElementById("nightWakeRecBadge");
+  if (wakeRecBadge) {
+    wakeRecBadge.style.display = nightRecordEnabled ? "inline-flex" : "none";
+  }
 
   if (sleepView) sleepView.style.display = "none";
   if (wakeView) wakeView.style.display = "flex";
