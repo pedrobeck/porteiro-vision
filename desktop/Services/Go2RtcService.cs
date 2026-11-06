@@ -100,6 +100,9 @@ public class Go2RtcService
         sb.AppendLine("rtsp:");
         sb.AppendLine("  listen: \"127.0.0.1:8554\"");
         sb.AppendLine();
+        sb.AppendLine("ffmpeg:");
+        sb.AppendLine("  bin: \"ffmpeg\"");
+        sb.AppendLine();
         sb.AppendLine("webrtc:");
         sb.AppendLine("  listen: \":8555\"");
         sb.AppendLine("  candidates:");
@@ -121,7 +124,18 @@ public class Go2RtcService
                 ? c.CustomUrl
                 : StorageService.BuildRtspUrl(c);
 
-            sb.AppendLine($"  \"{cid}\": \"{rtspUrl}\"");
+            bool isIcsee = c.Brand?.ToLowerInvariant() == "icsee";
+            if (isIcsee)
+            {
+                // Suporte dual H.265 + H.264 acelerado via GPU NVENC (elimina faixa verde no Android)
+                sb.AppendLine($"  \"{cid}\":");
+                sb.AppendLine($"    - \"{rtspUrl}\"");
+                sb.AppendLine($"    - \"ffmpeg:{cid}#video=h264#hardware=cuda\"");
+            }
+            else
+            {
+                sb.AppendLine($"  \"{cid}\": \"{rtspUrl}\"");
+            }
             hasStreams = true;
 
             // Se for iCSee multi-lente cadastrada

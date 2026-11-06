@@ -140,6 +140,27 @@ export class PorteiroStream extends VideoRTC {
     this.pcState = WebSocket.CONNECTING;
     this.pc = pc;
   }
+
+  async createOffer(pc) {
+    const tc = pc.addTransceiver('video', { direction: 'recvonly' });
+    if ('RTCRtpReceiver' in window && 'getCapabilities' in RTCRtpReceiver) {
+      try {
+        const codecs = RTCRtpReceiver.getCapabilities('video').codecs;
+        const h264 = codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
+        const other = codecs.filter(c => c.mimeType.toLowerCase() !== 'video/h264' && c.mimeType.toLowerCase() !== 'video/h265');
+        // Prioriza e isola H.264 na oferta SDP para eliminar o bug da faixa verde de H.265 em tablets Android
+        if (h264.length > 0) {
+          tc.setCodecPreferences([...h264, ...other]);
+        }
+      } catch (e) {
+        console.warn('[WebRTC] setCodecPreferences:', e);
+      }
+    }
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    return offer;
+  }
 }
 
 if (!customElements.get('porteiro-stream')) {
