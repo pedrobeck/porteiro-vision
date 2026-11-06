@@ -283,7 +283,8 @@ public class CameraManager : IDisposable
                 await outputStream.WriteAsync(trailerBytes, cancellationToken);
                 await outputStream.FlushAsync(cancellationToken);
 
-                await Task.Delay(35, cancellationToken);
+                // Limita streaming a ~10 FPS para não saturar a rede Wi-Fi doméstica com 3 câmeras simultâneas
+                await Task.Delay(100, cancellationToken);
             }
         }
         catch (OperationCanceledException) { }

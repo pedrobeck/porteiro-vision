@@ -124,11 +124,12 @@ public class CameraWorker : IDisposable
                 int h = frame.Height;
                 int w = frame.Width;
 
-                // Redimensiona se for maior que 1280 (ex: 2K da Tapo) para economizar RAM e CPU
-                if (w > 1280)
+                // Redimensiona para 640x360 (resolução ideal para grid CCTV no tablet/web),
+                // economizando mais de 75% de banda Wi-Fi e evitando saturação da rede doméstica
+                if (w > 640)
                 {
-                    int newH = (int)(h * (1280.0 / w));
-                    Cv2.Resize(frame, frame, new Size(1280, newH), 0, 0, InterpolationFlags.Area);
+                    int newH = (int)(h * (640.0 / w));
+                    Cv2.Resize(frame, frame, new Size(640, newH), 0, 0, InterpolationFlags.Area);
                     h = frame.Height;
                     w = frame.Width;
                 }
@@ -151,15 +152,15 @@ public class CameraWorker : IDisposable
                 // Estampa d'água CCTV no canto inferior esquerdo
                 string ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 string hudText = $"{Name} | {ts} | {Fps:F1} FPS";
-                var textPos = new Point(15, h - 15);
+                var textPos = new Point(10, h - 10);
 
                 // Contorno preto
-                Cv2.PutText(frame, hudText, textPos, HersheyFonts.HersheySimplex, 0.55, Scalar.Black, 3, LineTypes.AntiAlias);
+                Cv2.PutText(frame, hudText, textPos, HersheyFonts.HersheySimplex, 0.45, Scalar.Black, 2, LineTypes.AntiAlias);
                 // Texto branco
-                Cv2.PutText(frame, hudText, textPos, HersheyFonts.HersheySimplex, 0.55, Scalar.White, 1, LineTypes.AntiAlias);
+                Cv2.PutText(frame, hudText, textPos, HersheyFonts.HersheySimplex, 0.45, Scalar.White, 1, LineTypes.AntiAlias);
 
-                // Codificação JPEG otimizada
-                Cv2.ImEncode(".jpg", frame, out byte[] jpgBytes, new ImageEncodingParam(ImwriteFlags.JpegQuality, 70));
+                // Codificação JPEG leve (qualidade 55) otimizada para streaming fluido sem engasgar o Wi-Fi
+                Cv2.ImEncode(".jpg", frame, out byte[] jpgBytes, new ImageEncodingParam(ImwriteFlags.JpegQuality, 55));
 
                 lock (_lock)
                 {
