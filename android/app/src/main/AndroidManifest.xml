@@ -10,12 +10,12 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Porteiro Vision"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:label="Vision"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true"
-        android:theme="@style/Theme.PorteiroVision.Fullscreen">
+        android:theme="@style/Theme.Vision.Fullscreen">
 
         <activity
             android:name=".MainActivity"

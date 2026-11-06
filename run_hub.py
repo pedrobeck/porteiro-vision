@@ -49,7 +49,7 @@ def main():
     port = 8090
     
     print("\n" + "=" * 70)
-    print("[PORTEIRO VISION] CENTRAL DE STREAMING LOCAL (ZERO LATENCIA)")
+    print("[VISION] CENTRAL DE STREAMING LOCAL (ZERO LATENCIA)")
     print("=" * 70)
     print("DENTRO DE CASA (Zero Latencia):")
     print(f"   Acesso no Computador:            http://127.0.0.1:{port}")

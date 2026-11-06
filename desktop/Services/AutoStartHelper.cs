@@ -6,7 +6,7 @@ namespace PorteiroVision.Services;
 
 public static class AutoStartHelper
 {
-    private const string AppName = "PorteiroVisionHub";
+    private const string AppName = "VisionHub";
     private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public static bool IsAutoStartEnabled()
@@ -14,7 +14,7 @@ public static class AutoStartHelper
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunRegistryKey, false);
-            return key?.GetValue(AppName) != null;
+            return key?.GetValue(AppName) != null || key?.GetValue("PorteiroVisionHub") != null;
         }
         catch
         {
@@ -29,9 +29,12 @@ public static class AutoStartHelper
             using var key = Registry.CurrentUser.OpenSubKey(RunRegistryKey, true);
             if (key == null) return false;
 
+            // Remove legacy key if present
+            try { key.DeleteValue("PorteiroVisionHub", false); } catch { }
+
             if (enable)
             {
-                var exePath = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "PorteiroVision.exe");
+                var exePath = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Vision.exe");
                 key.SetValue(AppName, $"\"{exePath}\" --minimized");
             }
             else

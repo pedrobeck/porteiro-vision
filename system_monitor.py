@@ -31,7 +31,7 @@ class SystemMonitor:
             try:
                 self._proc = psutil.Process(os.getpid())
                 p = self._proc.parent()
-                if p and p.is_running() and "porteiro" in p.name().lower():
+                if p and p.is_running() and any(k in p.name().lower() for k in ("vision", "porteiro")):
                     self._parent_proc = p
             except Exception:
                 pass

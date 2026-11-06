@@ -2,8 +2,40 @@
    TEMAS VISUAIS / ESTILOS DE FUNDO
    ======================================================== */
 
-/* 1. PADRÃO NOVO: DARK OLED (Preto Absoluto Minimalista - Estilo UniFi Protect / Apple) */
+/* 1. PADRÃO OFICIAL: VISION (Azul-noite + Ciano Sinal - Brand Kit Oficial) */
 :root,
+[data-theme="vision"] {
+  --surface-0: #0A1222;
+  --surface-1: #111C33;
+  --border: #22314F;
+  --ink: #EAF2FF;
+  --ink-muted: #9FB0C8;
+  --brand: #3DD6F5;
+  --brand-text: #3DD6F5;
+  --on-brand: #0A1222;
+  --lens-core: #0A1222;
+  --lens-glass: #13244A;
+  --signal-rec: #FF5A5F;
+  --signal-ok: #34D399;
+
+  --bg-primary: #0A1222;
+  --bg-secondary: #0D1629;
+  --bg-card: #111C33;
+  --border-color: #22314F;
+  --text-main: #EAF2FF;
+  --text-muted: #9FB0C8;
+  --accent-cyan: #3DD6F5;
+  --accent-blue: #2563EB;
+  --accent-emerald: #34D399;
+  --accent-warn: #FBBF24;
+  --accent-danger: #FF5A5F;
+  --card-shadow: 0 8px 32px rgba(10, 18, 34, 0.7);
+  --body-bg-gradient: radial-gradient(circle at 50% 0%, #111C33 0%, #0A1222 75%);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-heading: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 2. DARK OLED (Preto Absoluto) */
 [data-theme="oled"] {
   --bg-primary: #000000;
   --bg-secondary: #0a0c10;
@@ -11,17 +43,18 @@
   --border-color: rgba(255, 255, 255, 0.09);
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
-  --accent-cyan: #00f2fe;
+  --accent-cyan: #3DD6F5;
   --accent-blue: #3b82f6;
-  --accent-emerald: #10b981;
+  --accent-emerald: #34D399;
   --accent-warn: #f59e0b;
-  --accent-danger: #ef4444;
+  --accent-danger: #FF5A5F;
   --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
   --body-bg-gradient: radial-gradient(circle at 50% 0%, #111827 0%, #000000 75%);
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Space Grotesk', sans-serif;
 }
 
-/* 2. CARBONO STEALTH (Textura de Centro de Operações Tático) */
+/* 3. CARBONO STEALTH (Textura de Centro de Operações Tático) */
 [data-theme="carbon"] {
   --bg-primary: #0a0b0d;
   --bg-secondary: #101216;
@@ -1716,4 +1749,34 @@ video::-webkit-media-controls-overlay-enclosure,
   color: var(--accent-cyan) !important;
   border-color: var(--accent-cyan) !important;
   box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+
+
+/* --- REBRANDING VISION: FONTES & LOGO --- */
+h1, h2, h3, h4, .brand-title, .modal-title, .standby-clock, .night-sleep-clock, .brand-badge {
+  font-family: var(--font-heading);
+}
+
+.brand-logo-img {
+  height: 28px;
+  width: auto;
+  min-width: 120px;
+  max-width: 160px;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+}
+
+.night-sleep-symbol {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 16px auto;
+  display: block;
+  filter: drop-shadow(0 0 20px rgba(61, 214, 245, 0.4));
+  animation: pulse-vision-symbol 4s ease-in-out infinite;
+}
+
+@keyframes pulse-vision-symbol {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
 }

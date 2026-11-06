@@ -1,4 +1,4 @@
-// PORTEIRO VISION - DASHBOARD CONTROLLER
+// VISION - DASHBOARD CONTROLLER
 
 window.cameras = [];
 let currentLayout = "auto";
@@ -543,7 +543,7 @@ function takeSnapshot(camId, event) {
   const baseUrl = getStreamBaseUrl();
   const link = document.createElement("a");
   link.href = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
-  link.download = `porteiro_cam_${camId}_${Date.now()}.jpg`;
+  link.download = `vision_cam_${camId}_${Date.now()}.jpg`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -1795,6 +1795,7 @@ window.refreshApp = refreshApp;
 
 // --- GESTÃO DE TEMAS VISUAIS / FUNDO ---
 const THEMES = [
+  { id: 'vision', label: 'Fundo: Vision' },
   { id: 'oled', label: 'Fundo: OLED' },
   { id: 'carbon', label: 'Fundo: Carbono' },
   { id: 'graphite', label: 'Fundo: Grafite' },
@@ -1802,13 +1803,13 @@ const THEMES = [
 ];
 
 function initTheme() {
-  const saved = localStorage.getItem("porteiro_theme") || "oled";
+  const saved = localStorage.getItem("vision_theme") || localStorage.getItem("porteiro_theme") || "vision";
   applyTheme(saved);
 }
 
 function applyTheme(themeId) {
   document.documentElement.setAttribute("data-theme", themeId);
-  localStorage.setItem("porteiro_theme", themeId);
+  localStorage.setItem("vision_theme", themeId);
   const label = document.getElementById("themePickerLabel");
   const found = THEMES.find(t => t.id === themeId);
   if (label && found) {
@@ -1817,7 +1818,7 @@ function applyTheme(themeId) {
 }
 
 function cycleTheme() {
-  const current = localStorage.getItem("porteiro_theme") || "oled";
+  const current = localStorage.getItem("vision_theme") || localStorage.getItem("porteiro_theme") || "vision";
   const idx = THEMES.findIndex(t => t.id === current);
   const next = THEMES[(idx + 1) % THEMES.length];
   applyTheme(next.id);

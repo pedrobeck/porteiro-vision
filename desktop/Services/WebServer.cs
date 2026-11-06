@@ -136,21 +136,26 @@ public class WebServer : IDisposable
         });
 
         // 3. Download APK
+        app.MapGet("/download/Vision.apk", ServeApk);
         app.MapGet("/download/PorteiroVision.apk", ServeApk);
         app.MapGet("/download/apk", ServeApk);
 
         async Task ServeApk(HttpContext ctx)
         {
-            string apkPath = Path.Combine(_staticDir, "PorteiroVision.apk");
+            string apkPath = Path.Combine(_staticDir, "Vision.apk");
+            if (!File.Exists(apkPath))
+            {
+                apkPath = Path.Combine(_staticDir, "PorteiroVision.apk");
+            }
             if (File.Exists(apkPath))
             {
                 ctx.Response.ContentType = "application/vnd.android.package-archive";
-                ctx.Response.Headers["Content-Disposition"] = "attachment; filename=\"PorteiroVision.apk\"";
+                ctx.Response.Headers["Content-Disposition"] = "attachment; filename=\"Vision.apk\"";
                 await ctx.Response.SendFileAsync(apkPath);
             }
             else
             {
-                ctx.Response.Redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v1.0.0-apk/PorteiroVision.apk");
+                ctx.Response.Redirect("https://github.com/pedrobeck/porteiro-vision/releases/latest");
             }
         }
 

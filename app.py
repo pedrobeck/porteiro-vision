@@ -84,13 +84,16 @@ def manifest():
 def service_worker():
     return send_from_directory("static", "sw.js", mimetype="application/javascript")
 
+@app.route("/download/Vision.apk")
 @app.route("/download/PorteiroVision.apk")
 @app.route("/download/apk")
 def download_apk():
-    apk_path = os.path.join(BASE_DIR, "static", "PorteiroVision.apk")
+    apk_path = os.path.join(BASE_DIR, "static", "Vision.apk")
+    if not os.path.exists(apk_path):
+        apk_path = os.path.join(BASE_DIR, "static", "PorteiroVision.apk")
     if os.path.exists(apk_path):
-        return send_from_directory("static", "PorteiroVision.apk", as_attachment=True, mimetype="application/vnd.android.package-archive")
-    return redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v1.0.0-apk/PorteiroVision.apk")
+        return send_from_directory("static", os.path.basename(apk_path), as_attachment=True, mimetype="application/vnd.android.package-archive")
+    return redirect("https://github.com/pedrobeck/porteiro-vision/releases/latest")
 
 @app.route("/api/motion", methods=["GET"])
 def api_motion_status():
@@ -351,7 +354,7 @@ _start_memory_optimizer()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8090))
     print("=" * 60)
-    print("🚀 PORTEIRO VISION - CENTRAL DE CÂMERAS INTELIGENTE")
+    print("🚀 VISION - CENTRAL DE CÂMERAS INTELIGENTE")
     print(f"👉 Acesso Local:     http://localhost:{port}")
     print(f"👉 Acesso no Tablet: http://{LOCAL_IP}:{port}")
     print("=" * 60)

@@ -172,3 +172,7 @@ export class PorteiroStream extends VideoRTC {
 if (!customElements.get('porteiro-stream')) {
   customElements.define('porteiro-stream', PorteiroStream);
 }
+
+if (!customElements.get("vision-stream")) {
+  customElements.define("vision-stream", PorteiroStream);
+}

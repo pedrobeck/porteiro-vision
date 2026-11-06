@@ -124,7 +124,7 @@ public partial class MainWindow : Window
     {
         if (_isRunning) return;
 
-        Log("[Hub C#] Iniciando central Porteiro Vision 100% C# nativo...");
+        Log("[Hub C#] Iniciando central Vision 100% C# nativo...");
         SetState(true);
 
         try
@@ -377,7 +377,7 @@ public partial class MainWindow : Window
     {
         _trayIcon = new Forms.NotifyIcon
         {
-            Text = "Porteiro Vision Hub (100% C#)",
+            Text = "Vision (100% C#)",
             Visible = true
         };
 

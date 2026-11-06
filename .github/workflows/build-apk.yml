@@ -35,27 +35,30 @@ jobs:
       - name: Prepare APK Output
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/PorteiroVision.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Vision.apk
+          cp build-output/Vision.apk build-output/PorteiroVision.apk
           ls -la build-output/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PorteiroVision-APK
-          path: build-output/PorteiroVision.apk
+          name: Vision-APK
+          path: build-output/Vision.apk
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0-apk
-          name: "Porteiro Vision v1.0.0 (Android APK)"
+          tag_name: v2.0.0-apk
+          name: "Vision v2.0.0 (Android APK)"
           body: |
-            ### Porteiro Vision - Aplicativo Oficial para Tablet / TV Box (Android)
+            ### Vision - Aplicativo Oficial para Tablet / TV Box (Android)
             
-            - 🛡️ **Kiosk Fullscreen:** Oculta barras de navegação do Android.
-            - ⚡ **Tela Sempre Acesa:** Impede o tablet de desligar a tela durante o monitoramento.
-            - 🚀 **Zero Latência:** Conexão direta com o Hub local (`http://192.168.4.127:8080`) e fallback na Nuvem.
-            - 💤 **Modo Standby Integrado:** Patrulha e rotação aleatória de câmeras ativas.
-          files: build-output/PorteiroVision.apk
+            - 👁️ **Kiosk Fullscreen:** Oculta barras de navegação do Android com foco total nas câmeras.
+            - ⚡ **Tela Sempre Acesa:** Impede o tablet de desligar a tela durante a vigilância ativa.
+            - 🚀 **Zero Latência:** Conexão direta com a central local Vision (`http://192.168.4.127:8090`).
+            - 💤 **Modo Standby & Noturno:** Patrulha inteligente com despertar instantâneo por movimento.
+          files: |
+            build-output/Vision.apk
+            build-output/PorteiroVision.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -100,9 +100,9 @@ public class MainActivity extends AppCompatActivity {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
 
-        // Aceleração de hardware gráfica e fundo escuro
+        // Aceleração de hardware gráfica e fundo oficial Vision (surface-0)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        webView.setBackgroundColor(android.graphics.Color.parseColor("#0A0D14"));
+        webView.setBackgroundColor(android.graphics.Color.parseColor("#0A1222"));
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -167,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showConfigServerDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Configurar IP da Central");
+        builder.setTitle("Configurar Central Vision");
 
         final EditText input = new EditText(this);
         String currentUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_LOCAL_URL);

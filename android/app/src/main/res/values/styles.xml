@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PorteiroVision.Fullscreen" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Vision.Fullscreen" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowBackground">@color/bg_dark</item>
     </style>
+    <!-- Alias para compatibilidade -->
+    <style name="Theme.PorteiroVision.Fullscreen" parent="Theme.Vision.Fullscreen" />
 </resources>

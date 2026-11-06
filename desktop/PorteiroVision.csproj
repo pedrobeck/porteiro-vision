@@ -7,6 +7,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Vision</AssemblyName>
+    <AssemblyTitle>Vision</AssemblyTitle>
+    <Product>Vision</Product>
+    <Description>Vision - Monitoramento inteligente de câmeras</Description>
     <ApplicationIcon Condition="Exists('icon.ico')">icon.ico</ApplicationIcon>
   </PropertyGroup>
 

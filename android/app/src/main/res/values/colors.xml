@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg_dark">#0A0D14</color>
-    <color name="accent_cyan">#00D2FF</color>
-    <color name="accent_blue">#0070F3</color>
+    <color name="bg_dark">#0A1222</color>
+    <color name="surface_1">#111C33</color>
+    <color name="accent_cyan">#3DD6F5</color>
+    <color name="signal_ok">#34D399</color>
+    <color name="signal_rec">#FF5A5F</color>
 </resources>

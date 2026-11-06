@@ -3,25 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0a0d14">
+  <meta name="theme-color" content="#0A1222">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Porteiro Vision | Central de Vigilância</title>
+  <title>Vision</title>
   
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/css/style.css?v=4.6">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+  <link rel="stylesheet" href="/static/css/style.css?v=5.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
 </head>
 <body>
 
   <!-- HEADER DE CONTROLE DO PORTEIRO -->
   <header class="top-bar">
     <div class="brand-section">
-      <div class="brand-logo">🛡️</div>
-      <div>
-        <span class="brand-title">PORTEIRO VISION</span>
-        <span class="brand-badge">ONLINE</span>
-      </div>
+      <img src="/static/brand/svg/horizontal/vision-horizontal-cor-fundo-escuro.svg" alt="Vision" class="brand-logo-img">
+      <span class="brand-badge">ONLINE</span>
     </div>
 
     <!-- SELETOR DE LAYOUTS E AÇÕES -->
@@ -32,7 +36,7 @@
         <button class="layout-btn" data-layout="1x1">1x1</button>
         <button class="layout-btn" data-layout="2x2">2x2</button>
         <button class="layout-btn" data-layout="3x3">3x3</button>
-        <button class="layout-btn" data-layout="hero" title="Modo Porteiro: Câmera Principal + Miniaturas">Hero</button>
+        <button class="layout-btn" data-layout="hero" title="Modo Foco: Câmera Principal + Miniaturas">Hero</button>
       </div>
 
       <!-- Seletor de Fundo / Tema Visual -->
@@ -46,7 +50,7 @@
       </div>
 
       <!-- Botão Baixar APK para Tablet -->
-      <a href="/download/PorteiroVision.apk" class="apk-download-btn" id="apkDownloadBtn" title="Baixar aplicativo nativo .APK para o seu Tablet ou TV Box" target="_blank">
+      <a href="/download/Vision.apk" class="apk-download-btn" id="apkDownloadBtn" title="Baixar aplicativo nativo .APK para o seu Tablet ou TV Box" target="_blank">
         <span class="apk-icon">📱</span>
         <span class="apk-text">App Tablet (.APK)</span>
       </a>
@@ -58,13 +62,13 @@
       </div>
 
       <!-- Telemetria do Porteiro Vision (CPU, RAM, Rede) -->
-      <div class="system-stats-bar" id="systemStatsBar" title="Telemetria em Tempo Real do Porteiro Vision">
-        <div class="stat-pill" id="pillCpu" title="Consumo de CPU do Porteiro Vision">
+      <div class="system-stats-bar" id="systemStatsBar" title="Telemetria em Tempo Real do Vision">
+        <div class="stat-pill" id="pillCpu" title="Consumo de CPU do Vision">
           <span class="stat-icon">⚡</span>
           <span class="stat-label">CPU App:</span>
           <strong id="statCpu">--%</strong>
         </div>
-        <div class="stat-pill" id="pillRam" title="Consumo de Memória RAM do Porteiro Vision">
+        <div class="stat-pill" id="pillRam" title="Consumo de Memória RAM do Vision">
           <span class="stat-icon">🧠</span>
           <span class="stat-label">RAM App:</span>
           <strong id="statRam">-- MB</strong>
@@ -357,7 +361,7 @@
     <!-- ESTADO 1: TELA DE DESCANSO NOTURNO (QUARTO ESCURO) -->
     <div id="nightSleepView" class="night-sleep-view">
       <div class="night-sleep-content">
-        <div class="night-sleep-moon">🌙</div>
+        <div class="night-sleep-moon"><img src="/static/brand/svg/simbolo/vision-simbolo-cor-fundo-escuro.svg" alt="Vision" class="night-sleep-symbol"></div>
         <div id="nightSleepClock" class="night-sleep-clock">00:00</div>
         <div id="nightSleepDate" class="night-sleep-date">Carregando data...</div>
         
@@ -503,7 +507,7 @@
     </div>
   </div>
 
-  <script type="module" src="/static/js/porteiro-stream.js?v=4.6"></script>
-  <script src="/static/js/app.js?v=4.6"></script>
+  <script type="module" src="/static/js/porteiro-stream.js?v=5.0"></script>
+  <script src="/static/js/app.js?v=5.0"></script>
 </body>
 </html>
