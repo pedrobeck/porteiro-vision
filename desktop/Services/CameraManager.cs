@@ -29,10 +29,7 @@ public class CameraManager : IDisposable
     public void StartAll()
     {
         var cameras = _storage.LoadCameras();
-        if (cameras.Any(c => c.MultiLens))
-        {
-            Go2RtcService.Start(cameras);
-        }
+        Go2RtcService.Start(cameras);
 
         Console.WriteLine($"[CameraManager] Iniciando {cameras.Count} câmeras cadastradas...");
         foreach (var cam in cameras)

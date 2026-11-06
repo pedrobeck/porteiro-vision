@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,6 +80,11 @@ public class WebServer : IDisposable
             .AllowAnyMethod()
             .AllowAnyHeader()
         );
+
+        _app.UseWebSockets(new WebSocketOptions
+        {
+            KeepAliveInterval = TimeSpan.FromSeconds(20)
+        });
 
         ConfigureRoutes(_app);
 
@@ -347,7 +354,11 @@ public class WebServer : IDisposable
             }
 
             var added = _storage.AddCamera(cam);
-            _ = Task.Run(() => _cameraManager.StartWorker(added));
+            _ = Task.Run(() =>
+            {
+                _cameraManager.StartWorker(added);
+                Go2RtcService.Start(_storage.LoadCameras());
+            });
             return Results.Json(added, statusCode: 201);
         });
 
@@ -383,7 +394,11 @@ public class WebServer : IDisposable
 
             if (updated == null) return Results.Json(new { error = "Câmera não encontrada" }, statusCode: 404);
 
-            _ = Task.Run(() => _cameraManager.RestartWorker(updated));
+            _ = Task.Run(() =>
+            {
+                _cameraManager.RestartWorker(updated);
+                Go2RtcService.Start(_storage.LoadCameras());
+            });
             return Results.Json(updated);
         });
 
@@ -391,7 +406,11 @@ public class WebServer : IDisposable
         {
             if (_storage.DeleteCamera(camId))
             {
-                _ = Task.Run(() => _cameraManager.StopWorker(camId));
+                _ = Task.Run(() =>
+                {
+                    _cameraManager.StopWorker(camId);
+                    Go2RtcService.Start(_storage.LoadCameras());
+                });
                 return Results.Json(new { success = true });
             }
             return Results.Json(new { error = "Câmera não encontrada" }, statusCode: 404);
@@ -407,7 +426,11 @@ public class WebServer : IDisposable
             var updated = _storage.UpdateCamera(camId, c => c.MultiLens = newState);
             if (updated != null)
             {
-                _ = Task.Run(() => _cameraManager.StartWorker(updated, restartMain: false));
+                _ = Task.Run(() =>
+                {
+                    _cameraManager.StartWorker(updated, restartMain: false);
+                    Go2RtcService.Start(_storage.LoadCameras());
+                });
             }
             return Results.Json(new { success = true, multi_lens = newState });
         });
@@ -539,6 +562,88 @@ public class WebServer : IDisposable
 
         // Token endpoint
         app.MapGet("/api/token", () => Results.Json(new { token = "local" }));
+
+        // 13. WebRTC / WebSocket Proxy para go2rtc
+        app.Map("/api/ws", async (HttpContext ctx) =>
+        {
+            if (!ctx.WebSockets.IsWebSocketRequest)
+            {
+                ctx.Response.StatusCode = 400;
+                await ctx.Response.WriteAsync("WebSocket request expected.");
+                return;
+            }
+
+            using var clientWs = await ctx.WebSockets.AcceptWebSocketAsync();
+            using var serverWs = new ClientWebSocket();
+            var targetUri = new Uri($"ws://127.0.0.1:1984/api/ws{ctx.Request.QueryString}");
+
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+                await serverWs.ConnectAsync(targetUri, cts.Token);
+
+                var t1 = ForwardWebSocketStream(clientWs, serverWs, cts);
+                var t2 = ForwardWebSocketStream(serverWs, clientWs, cts);
+
+                await Task.WhenAny(t1, t2);
+                cts.Cancel();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WebServer] Erro no túnel WS go2rtc: {ex.Message}");
+            }
+        });
+
+        // 14. WebRTC SDP POST Proxy para go2rtc
+        app.MapPost("/api/webrtc", async (HttpContext ctx) =>
+        {
+            try
+            {
+                var uri = $"http://127.0.0.1:1984/api/webrtc{ctx.Request.QueryString}";
+                using var httpClient = new HttpClient();
+                using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+                using var content = new StreamContent(ctx.Request.Body);
+                if (!string.IsNullOrEmpty(ctx.Request.ContentType))
+                {
+                    content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(ctx.Request.ContentType);
+                }
+                request.Content = content;
+
+                using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
+                ctx.Response.StatusCode = (int)response.StatusCode;
+                ctx.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "text/plain";
+                await response.Content.CopyToAsync(ctx.Response.Body);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WebServer] Erro no proxy WebRTC SDP: {ex.Message}");
+                ctx.Response.StatusCode = 502;
+                await ctx.Response.WriteAsync($"Erro ao contatar go2rtc: {ex.Message}");
+            }
+        });
+    }
+
+    private static async Task ForwardWebSocketStream(WebSocket source, WebSocket destination, CancellationTokenSource cts)
+    {
+        var buffer = new byte[64 * 1024];
+        try
+        {
+            while (source.State == WebSocketState.Open && destination.State == WebSocketState.Open && !cts.IsCancellationRequested)
+            {
+                var res = await source.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
+                if (res.MessageType == WebSocketMessageType.Close)
+                {
+                    if (destination.State == WebSocketState.Open)
+                    {
+                        await destination.CloseAsync(res.CloseStatus ?? WebSocketCloseStatus.NormalClosure, res.CloseStatusDescription, CancellationToken.None);
+                    }
+                    break;
+                }
+
+                await destination.SendAsync(new ArraySegment<byte>(buffer, 0, res.Count), res.MessageType, res.EndOfMessage, cts.Token);
+            }
+        }
+        catch { }
     }
 
     public async Task StopAsync()

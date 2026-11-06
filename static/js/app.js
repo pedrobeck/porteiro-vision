@@ -307,6 +307,7 @@ function renderGrid() {
     cell.dataset.id = cam.id;
 
     const streamUrl = `${baseUrl}/api/stream/${cam.id}`;
+    const wsUrl = `/api/ws?src=${encodeURIComponent(cam.id)}`;
 
     let feedHtml = "";
     if (needsHubConfig) {
@@ -327,7 +328,9 @@ function renderGrid() {
     } else {
       feedHtml = `
         <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
-          <img class="feed-img" src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
+          <porteiro-stream class="feed-video" data-id="${cam.id}" src="${wsUrl}"></porteiro-stream>
+          <img class="feed-img fallback-feed" style="display: none;" data-src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
+          <div class="stream-protocol-badge rtc" id="proto-${cam.id}">RTC</div>
         </div>
       `;
     }
@@ -364,6 +367,41 @@ function renderGrid() {
       ${feedHtml}
       ${(cam.ptz_enabled && !isSubLens) ? renderPtzJoystick(cam.id) : ""}
     `;
+
+    const pStream = cell.querySelector("porteiro-stream");
+    const fallbackImg = cell.querySelector(".fallback-feed");
+    const badge = cell.querySelector(`#proto-${cam.id}`);
+
+    if (pStream && fallbackImg && badge) {
+      let rtcTimeout = setTimeout(() => {
+        if (pStream.style.display !== "none" && (!pStream.video || pStream.video.readyState === 0)) {
+          console.warn(`[Stream] Timeout WebRTC para ${cam.id}, ativando fallback MJPEG`);
+          pStream.style.display = "none";
+          fallbackImg.src = fallbackImg.dataset.src;
+          fallbackImg.style.display = "block";
+          badge.textContent = "MJPEG";
+          badge.className = "stream-protocol-badge mjpeg";
+        }
+      }, 7000);
+
+      pStream.addEventListener("streamconnected", (ev) => {
+        clearTimeout(rtcTimeout);
+        const mode = ev.detail?.mode || "RTC";
+        badge.textContent = mode;
+        badge.className = "stream-protocol-badge rtc";
+        pStream.style.display = "block";
+        fallbackImg.style.display = "none";
+      });
+
+      pStream.addEventListener("streamfailed", () => {
+        clearTimeout(rtcTimeout);
+        pStream.style.display = "none";
+        fallbackImg.src = fallbackImg.dataset.src;
+        fallbackImg.style.display = "block";
+        badge.textContent = "MJPEG";
+        badge.className = "stream-protocol-badge mjpeg";
+      });
+    }
 
     cell.addEventListener("click", (e) => {
       if (!e.target.closest("button") && !e.target.closest(".ptz-joystick") && !needsHubConfig) {
@@ -726,6 +764,10 @@ function toggleStandbyMode() {
 
 // Pausa streams em segundo plano para liberar conexões e Wi-Fi no tablet
 function pauseGridStreams() {
+  document.querySelectorAll(".camera-cell porteiro-stream").forEach((st) => {
+    try { st.ondisconnect(); } catch (e) {}
+    st.removeAttribute("src");
+  });
   document.querySelectorAll(".camera-cell .feed-img").forEach((img) => {
     img.removeAttribute("src");
     img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -737,8 +779,13 @@ function resumeGridStreams() {
   const baseUrl = getStreamBaseUrl();
   document.querySelectorAll(".camera-cell").forEach((cell) => {
     const camId = cell.dataset.id;
+    const st = cell.querySelector("porteiro-stream");
+    if (st && camId) {
+      st.style.display = "block";
+      st.src = `/api/ws?src=${encodeURIComponent(camId)}`;
+    }
     const img = cell.querySelector(".feed-img");
-    if (img && camId) {
+    if (img && camId && img.style.display !== "none") {
       img.src = `${baseUrl}/api/stream/${camId}`;
     }
   });
@@ -820,6 +867,12 @@ function exitStandbyMode() {
   if (feedImg) {
     feedImg.onerror = null;
     feedImg.src = "";
+  }
+  const standbyVideo = document.getElementById("standbyFeedVideo");
+  if (standbyVideo) {
+    try { standbyVideo.ondisconnect(); } catch (e) {}
+    standbyVideo.removeAttribute("src");
+    standbyVideo.style.display = "none";
   }
 
   // Remove listeners
@@ -947,6 +1000,12 @@ function switchStandbyCamera(isInitial = false) {
   standbyCurrentCamId = nextCam.id;
   updateStandbyHud(nextCam);
 
+  const standbyVideo = document.getElementById("standbyFeedVideo");
+  if (standbyVideo) {
+    standbyVideo.style.display = "block";
+    standbyVideo.src = `/api/ws?src=${encodeURIComponent(nextCam.id)}`;
+  }
+
   if (feedImg) {
     const baseUrl = getStreamBaseUrl();
     const streamUrl = `${baseUrl}/api/stream/${nextCam.id}?t=${Date.now()}`;
@@ -1064,6 +1123,12 @@ function prevStandbyCamera() {
 
   standbyCurrentCamId = prevCam.id;
   updateStandbyHud(prevCam);
+
+  const standbyVideo = document.getElementById("standbyFeedVideo");
+  if (standbyVideo) {
+    standbyVideo.style.display = "block";
+    standbyVideo.src = `/api/ws?src=${encodeURIComponent(prevCam.id)}`;
+  }
 
   const feedImg = document.getElementById("standbyFeedImg");
   if (feedImg) {
@@ -1305,6 +1370,12 @@ function exitNightMode() {
   if (poster) {
     poster.removeAttribute("src");
   }
+  const wakeVideo = document.getElementById("nightWakeVideo");
+  if (wakeVideo) {
+    try { wakeVideo.ondisconnect(); } catch (e) {}
+    wakeVideo.removeAttribute("src");
+    wakeVideo.style.display = "none";
+  }
 
   // Remove listeners
   document.removeEventListener("keydown", handleNightKeyDown);
@@ -1381,6 +1452,12 @@ function forceNightSleep() {
   }
   if (poster) {
     poster.removeAttribute("src");
+  }
+  const wakeVideo = document.getElementById("nightWakeVideo");
+  if (wakeVideo) {
+    try { wakeVideo.ondisconnect(); } catch (e) {}
+    wakeVideo.removeAttribute("src");
+    wakeVideo.style.display = "none";
   }
 }
 
@@ -1492,8 +1569,21 @@ function triggerNightWake(camId, camName) {
     poster.src = snapshotUrl;
   }
 
-  // 2. Conecta stream de vídeo contínuo MJPEG no topo
-  if (feed) {
+  // 2. Conecta stream WebRTC H.264 prioritário
+  const wakeVideo = document.getElementById("nightWakeVideo");
+  if (wakeVideo) {
+    wakeVideo.style.display = "block";
+    wakeVideo.style.zIndex = "3";
+    wakeVideo.src = `/api/ws?src=${encodeURIComponent(camId)}`;
+    wakeVideo.addEventListener("streamfailed", () => {
+      console.warn("[NightWake] WebRTC falhou, ativando fallback MJPEG");
+      if (feed) {
+        feed.style.display = "block";
+        feed.src = streamUrl;
+      }
+    }, { once: true });
+  } else if (feed) {
+    feed.style.display = "block";
     feed.style.zIndex = "2";
     feed.style.background = "transparent";
     feed.dataset.camId = camId;

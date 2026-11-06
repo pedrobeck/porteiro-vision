@@ -375,7 +375,9 @@
     <div id="nightWakeView" class="night-wake-view" style="display: none;">
       <!-- Poster Instantâneo (Zero Black Screen ao Acordar) -->
       <img id="nightWakePosterImg" class="night-wake-feed-img" alt="Foto Alerta" style="z-index: 1;">
-      <!-- Stream da Câmera em Fullscreen Total -->
+      <!-- Stream WebRTC H.264 da Câmera em Fullscreen Total -->
+      <porteiro-stream id="nightWakeVideo" class="night-wake-feed-video" style="display: none;"></porteiro-stream>
+      <!-- Stream MJPEG Fallback -->
       <img id="nightWakeFeedImg" class="night-wake-feed-img" alt="Câmera em Alerta" style="z-index: 2; background: transparent;">
 
       <!-- Faixa Superior de Alerta -->
@@ -411,6 +413,7 @@
   <div id="standbyOverlay" class="standby-overlay" style="display: none;">
     <!-- Palco das câmeras -->
     <div class="standby-stage" id="standbyStage">
+      <porteiro-stream id="standbyFeedVideo" class="standby-feed-video" style="display: none;"></porteiro-stream>
       <img id="standbyFeedImg" class="standby-feed-img active" alt="Câmera Standby">
       
       <!-- Mensagem quando não houver câmeras online -->
@@ -489,6 +492,7 @@
     </div>
   </div>
 
-  <script src="/static/js/app.js?v=3.5"></script>
+  <script type="module" src="/static/js/porteiro-stream.js?v=4.0"></script>
+  <script src="/static/js/app.js?v=4.0"></script>
 </body>
 </html>

@@ -26,6 +26,23 @@ public class Go2RtcService
         return Path.Combine(baseDir, "go2rtc.yaml");
     }
 
+    public static void KillOrphanProcesses()
+    {
+        try
+        {
+            foreach (var p in Process.GetProcessesByName("go2rtc"))
+            {
+                try
+                {
+                    p.Kill(true);
+                    p.WaitForExit(1000);
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
     public static bool Start(List<CameraConfig> cameras)
     {
         lock (_lock)
@@ -44,6 +61,10 @@ public class Go2RtcService
                 if (!changed) return true;
                 Stop();
             }
+            else
+            {
+                KillOrphanProcesses();
+            }
 
             try
             {
@@ -58,7 +79,7 @@ public class Go2RtcService
 
                 _proc = Process.Start(psi);
                 System.Threading.Thread.Sleep(1200);
-                Console.WriteLine("[go2rtc] Servidor multi-lente iniciado com sucesso!");
+                Console.WriteLine("[go2rtc] Servidor WebRTC / go2rtc iniciado com sucesso!");
                 return true;
             }
             catch (Exception ex)
@@ -71,6 +92,7 @@ public class Go2RtcService
 
     public static bool GenerateConfig(List<CameraConfig> cameras)
     {
+        string localIp = WebServer.GetLocalIp();
         var sb = new StringBuilder();
         sb.AppendLine("api:");
         sb.AppendLine("  listen: \"127.0.0.1:1984\"");
@@ -78,21 +100,44 @@ public class Go2RtcService
         sb.AppendLine("rtsp:");
         sb.AppendLine("  listen: \"127.0.0.1:8554\"");
         sb.AppendLine();
+        sb.AppendLine("webrtc:");
+        sb.AppendLine("  listen: \":8555\"");
+        sb.AppendLine("  candidates:");
+        if (!string.IsNullOrEmpty(localIp) && localIp != "127.0.0.1")
+        {
+            sb.AppendLine($"    - {localIp}:8555");
+        }
+        sb.AppendLine("    - 127.0.0.1:8555");
+        sb.AppendLine("    - stun:8555");
+        sb.AppendLine();
         sb.AppendLine("streams:");
 
         bool hasStreams = false;
-        foreach (var c in cameras.Where(c => c.Brand?.ToLowerInvariant() == "icsee"))
+        foreach (var c in cameras)
         {
+            if (string.IsNullOrWhiteSpace(c.Id)) continue;
             string cid = c.Id;
-            string user = c.Username ?? "admin";
-            string pwd = c.Password ?? "";
-            string host = string.IsNullOrWhiteSpace(c.Host) ? "127.0.0.1" : c.Host;
-            int port = 34567;
+            string rtspUrl = !string.IsNullOrWhiteSpace(c.CustomUrl)
+                ? c.CustomUrl
+                : StorageService.BuildRtspUrl(c);
 
-            sb.AppendLine($"  {cid}_ch0: \"dvrip://{user}:{pwd}@{host}:{port}?channel=0\"");
-            sb.AppendLine($"  {cid}_ch1: \"dvrip://{user}:{pwd}@{host}:{port}?channel=1\"");
-            sb.AppendLine($"  {cid}_ch2: \"dvrip://{user}:{pwd}@{host}:{port}?channel=2\"");
+            sb.AppendLine($"  \"{cid}\": \"{rtspUrl}\"");
             hasStreams = true;
+
+            // Se for iCSee multi-lente cadastrada
+            if (c.MultiLens && c.Brand?.ToLowerInvariant() == "icsee")
+            {
+                string user = c.Username ?? "admin";
+                string pwd = c.Password ?? "";
+                string host = string.IsNullOrWhiteSpace(c.Host) ? "127.0.0.1" : c.Host;
+                int port = 34567;
+
+                sb.AppendLine($"  \"{cid}_ch0\": \"dvrip://{user}:{pwd}@{host}:{port}?channel=0\"");
+                sb.AppendLine($"  \"{cid}_ch1\": \"dvrip://{user}:{pwd}@{host}:{port}?channel=1\"");
+                sb.AppendLine($"  \"{cid}_ch2\": \"dvrip://{user}:{pwd}@{host}:{port}?channel=2\"");
+                sb.AppendLine($"  \"{cid}_sub1\": \"rtsp://127.0.0.1:8554/{cid}_ch1\"");
+                sb.AppendLine($"  \"{cid}_sub2\": \"rtsp://127.0.0.1:8554/{cid}_ch2\"");
+            }
         }
 
         if (!hasStreams)
@@ -128,8 +173,9 @@ public class Go2RtcService
                 }
                 catch { }
                 _proc = null;
-                Console.WriteLine("[go2rtc] Servidor multi-lente encerrado.");
             }
+            KillOrphanProcesses();
+            Console.WriteLine("[go2rtc] Servidor WebRTC / go2rtc encerrado.");
         }
     }
 }
