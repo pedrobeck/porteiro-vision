@@ -29,6 +29,11 @@ public class CameraWorker : IDisposable
     private byte[]? _latestJpeg;
     private readonly object _lock = new();
 
+    private bool _snapshotSamplingActive = false;
+    private double _bestMotionRatio = 0;
+    private byte[]? _bestSnapshot = null;
+    private readonly object _snapshotLock = new();
+
     public CameraWorker(CameraConfig camera, RecordingService? recordingService = null, NotificationService? notificationService = null)
     {
         Camera = camera;
@@ -147,20 +152,54 @@ public class CameraWorker : IDisposable
                     bool moved = Motion.Detect(frame);
                     if (moved)
                     {
-                        Console.WriteLine($"[CameraWorker] Movimento detectado na câmera: {Name}");
-                        byte[]? snap = null;
-                        lock (_lock) { snap = _latestJpeg; }
-                        if (snap == null || snap.Length == 0)
-                        {
-                            Cv2.ImEncode(".jpg", frame, out snap, new ImageEncodingParam(ImwriteFlags.JpegQuality, 55));
-                        }
+                        byte[]? currentSnap = null;
+                        lock (_lock) { currentSnap = _latestJpeg; }
 
+                        // 1. Inicia gravação imediatamente no início do movimento para capturar toda a ação
                         if (_recordingService != null && _recordingService.ShouldRecord(Camera.Id))
                         {
-                            _recordingService.StartRecording(Camera, snap);
+                            _recordingService.StartRecording(Camera, currentSnap);
                         }
 
-                        _notificationService?.NotifyMotion(Camera, snap);
+                        // 2. Amostragem inteligente: aguarda 1.2s para a pessoa entrar no enquadramento
+                        // e seleciona o quadro com o maior volume de movimento (evitando sombras iniciais)
+                        if (!_snapshotSamplingActive && _notificationService != null && _notificationService.ShouldNotify(Camera.Id))
+                        {
+                            lock (_snapshotLock)
+                            {
+                                _snapshotSamplingActive = true;
+                                _bestMotionRatio = Motion.LastMotionRatio;
+                                _bestSnapshot = currentSnap;
+                            }
+
+                            Console.WriteLine($"[CameraWorker] Movimento detectado em {Name}. Acumulando quadros por 1.2s para capturar a pessoa centralizada...");
+
+                            Task.Run(async () =>
+                            {
+                                await Task.Delay(1200);
+
+                                byte[]? snapToSend;
+                                lock (_snapshotLock)
+                                {
+                                    snapToSend = _bestSnapshot;
+                                    _snapshotSamplingActive = false;
+                                    _bestMotionRatio = 0;
+                                    _bestSnapshot = null;
+                                }
+
+                                if (snapToSend == null)
+                                {
+                                    lock (_lock) { snapToSend = _latestJpeg; }
+                                }
+
+                                if (snapToSend != null)
+                                {
+                                    Console.WriteLine($"[CameraWorker] Foto de pico capturada com sucesso ({Name})! Disparando Toast no Windows...");
+                                    _notificationService.NotifyMotion(Camera, snapToSend);
+                                    _recordingService?.UpdateLatestThumbnail(Camera.Id, snapToSend);
+                                }
+                            });
+                        }
                     }
                 }
 
@@ -188,6 +227,18 @@ public class CameraWorker : IDisposable
                 lock (_lock)
                 {
                     _latestJpeg = jpgBytes;
+                }
+
+                if (_snapshotSamplingActive)
+                {
+                    lock (_snapshotLock)
+                    {
+                        if (Motion.LastMotionRatio >= _bestMotionRatio)
+                        {
+                            _bestMotionRatio = Motion.LastMotionRatio;
+                            _bestSnapshot = jpgBytes;
+                        }
+                    }
                 }
 
                 if (FrameCount % 300 == 0)

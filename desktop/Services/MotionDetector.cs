@@ -53,6 +53,7 @@ public class MotionDetector : IDisposable
     public string Sensitivity { get; set; } = "medium";
     public bool MotionDetected { get; private set; } = false;
     public double LastMotionTime { get; private set; } = 0;
+    public double LastMotionRatio { get; private set; } = 0;
 
     private int _consecutiveFrames = 0;
     private Mat? _bgGray;
@@ -111,6 +112,7 @@ public class MotionDetector : IDisposable
                 // Área ativa útil descontando as faixas superior e inferior: 160 * (90 - 24) = 10560
                 int changedPixels = Cv2.CountNonZero(thresh);
                 double ratio = changedPixels / 10560.0;
+                LastMotionRatio = ratio;
 
                 // Atualiza suavemente o fundo de referência
                 Cv2.AddWeighted(_bgGray, 0.95, gray, 0.05, 0, _bgGray);

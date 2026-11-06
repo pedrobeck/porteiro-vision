@@ -21,6 +21,7 @@ public class RecordingService
 
     private readonly ConcurrentDictionary<string, DateTime> _lastRecordingStart = new();
     private readonly ConcurrentDictionary<string, bool> _activeRecordings = new();
+    private readonly ConcurrentDictionary<string, string> _activeThumbPaths = new();
 
     public bool AutoRecordEnabled { get; set; } = true;
 
@@ -135,8 +136,22 @@ public class RecordingService
             finally
             {
                 _activeRecordings[camera.Id] = false;
+                _activeThumbPaths.TryRemove(camera.Id, out _);
             }
         });
+    }
+
+    public void UpdateLatestThumbnail(string camId, byte[] newThumbBytes)
+    {
+        if (_activeThumbPaths.TryGetValue(camId, out string? thumbPath) && !string.IsNullOrEmpty(thumbPath))
+        {
+            try
+            {
+                File.WriteAllBytes(thumbPath, newThumbBytes);
+                Console.WriteLine($"[RecordingService] Thumbnail atualizada com foto de pico para câmera {camId}");
+            }
+            catch { }
+        }
     }
 
     private async Task RecordClipAsync(CameraConfig camera, byte[]? snapshotBytes)
@@ -147,6 +162,7 @@ public class RecordingService
 
         string videoPath = Path.Combine(_recordingsDir, videoFilename);
         string thumbPath = Path.Combine(_thumbsDir, thumbFilename);
+        _activeThumbPaths[camera.Id] = thumbPath;
 
         // 1. Salva thumbnail instantânea do momento do evento
         if (snapshotBytes != null && snapshotBytes.Length > 0)
