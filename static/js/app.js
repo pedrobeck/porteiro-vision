@@ -331,7 +331,8 @@ function renderGrid() {
     } else {
       const snapUrl = `${baseUrl}/api/snapshot/${cam.id}?t=${Date.now()}`;
       feedHtml = `
-        <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
+        <div class="feed-wrapper" ondblclick="toggleFocusCamera('${cam.id}', event)">
+          <img class="feed-ambient" id="ambient-${cam.id}" src="${snapUrl}" alt="" aria-hidden="true">
           <img class="feed-poster" id="poster-${cam.id}" src="${snapUrl}" alt="${escapeHtml(cam.name)}">
           <porteiro-stream class="feed-video" data-id="${cam.id}" data-quality="sub" src="${wsUrl}" style="position: relative; z-index: 2; opacity: 0; transition: opacity 0.3s ease;"></porteiro-stream>
           <img class="feed-img fallback-feed" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;" data-src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
@@ -364,9 +365,10 @@ function renderGrid() {
         </div>
         <div class="cell-actions">
           ${multiLensBtn}
-          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p detalhado)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
+          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
+          <button class="action-icon-btn btn-fill" id="btn-fill-${cam.id}" title="Alternar Ajustar na Tela ou Preencher sem bordas" onclick="toggleCameraFill('${cam.id}', event)">⛶</button>
           <button class="action-icon-btn" title="Capturar Foto" onclick="takeSnapshot('${cam.id}', event)">📸</button>
-          <button class="action-icon-btn" title="Ampliar / Tela Cheia" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
+          <button class="action-icon-btn btn-focus-toggle" title="Ampliar / Tela Cheia" onclick="toggleFocusCamera('${cam.id}', event)">🔍</button>
           ${!isSubLens ? `<button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
@@ -1819,4 +1821,20 @@ function cycleTheme() {
   const idx = THEMES.findIndex(t => t.id === current);
   const next = THEMES[(idx + 1) % THEMES.length];
   applyTheme(next.id);
+}
+
+// Alterna entre Ajustar na Tela (contain) e Preencher 100% da Tela sem bordas (cover)
+function toggleCameraFill(camId, event) {
+  if (event) event.stopPropagation();
+  const cell = document.querySelector(`.camera-cell[data-id="${camId}"]`);
+  if (!cell) return;
+  cell.classList.toggle("fill-screen");
+  const isFilled = cell.classList.contains("fill-screen");
+  const btn = cell.querySelector(`#btn-fill-${camId}`);
+  if (btn) {
+    btn.classList.toggle("active-fill", isFilled);
+    btn.style.color = isFilled ? "var(--accent-cyan)" : "";
+    btn.style.borderColor = isFilled ? "var(--accent-cyan)" : "";
+    btn.title = isFilled ? "Modo: Preencher Tela (clique para Ajustar)" : "Modo: Ajustar na Tela (clique para Preencher)";
+  }
 }
