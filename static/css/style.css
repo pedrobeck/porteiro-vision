@@ -900,6 +900,50 @@ porteiro-stream video {
   font-size: 15px;
 }
 
+/* BOTÃO RECARREGAR / ATUALIZAR */
+.reload-btn {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.7));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #f1f5f9;
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  min-height: 36px;
+  touch-action: manipulation;
+  user-select: none;
+}
+.reload-btn:hover {
+  background: linear-gradient(135deg, rgba(51, 65, 85, 0.85), rgba(30, 41, 59, 0.85));
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+  transform: translateY(-1px);
+}
+.reload-btn:active, .reload-btn.loading {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  transform: scale(0.95);
+}
+.reload-btn .reload-icon {
+  font-size: 14px;
+  display: inline-block;
+  transition: transform 0.4s ease;
+}
+.reload-btn.loading .reload-icon {
+  animation: reloadSpin 0.7s linear infinite;
+}
+@keyframes reloadSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* OVERLAY STANDBY FULLSCREEN */
 .standby-overlay {
   position: fixed;
@@ -1255,6 +1299,12 @@ porteiro-stream video {
   }
   .standby-btn .standby-text {
     display: none;
+  }
+  .reload-btn .reload-text {
+    display: none;
+  }
+  .reload-btn {
+    padding: 7px 10px;
   }
 }
 

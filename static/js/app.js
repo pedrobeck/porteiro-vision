@@ -1687,3 +1687,25 @@ function playNightChime() {
     osc2.stop(now + 0.65);
   } catch (err) {}
 }
+
+// Recarrega o app / câmeras com feedback visual (útil para Tablet/APK)
+function refreshApp() {
+  const btn = document.getElementById('reloadBtn');
+  if (btn) {
+    btn.classList.add('loading');
+    const txt = btn.querySelector('.reload-text');
+    if (txt) txt.textContent = 'Carregando...';
+  }
+
+  // Se estiver em modo noturno ou standby, sai limpo antes de recarregar
+  try {
+    if (typeof exitNightMode === 'function') exitNightMode();
+  } catch (e) {}
+
+  setTimeout(() => {
+    window.location.reload(true);
+  }, 200);
+}
+
+window.refreshApp = refreshApp;
+

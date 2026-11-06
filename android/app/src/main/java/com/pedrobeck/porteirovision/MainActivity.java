@@ -187,10 +187,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        builder.setNeutralButton("Porta 8090", (dialog, which) -> {
-            prefs.edit().putString(KEY_SERVER_URL, DEFAULT_LOCAL_URL).apply();
+        builder.setNeutralButton("🔄 Recarregar", (dialog, which) -> {
             triedFallback = false;
-            webView.loadUrl(DEFAULT_LOCAL_URL);
+            webView.reload();
+            Toast.makeText(MainActivity.this, "Recarregando tela...", Toast.LENGTH_SHORT).show();
         });
 
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
