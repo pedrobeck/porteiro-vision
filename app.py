@@ -330,6 +330,24 @@ def api_status():
         "system": stats
     })
 
+# --- OTIMIZADOR CONTÍNUO DE MEMÓRIA (GARBAGE COLLECTOR & WORKING SET TRIMMER) ---
+def _start_memory_optimizer():
+    def _optimizer_loop():
+        while True:
+            time.sleep(45)
+            try:
+                import gc
+                gc.collect()
+                if os.name == "nt":
+                    import ctypes
+                    # Libera memória inativa e devolve as páginas livres de volta ao Windows
+                    ctypes.windll.psapi.EmptyWorkingSet(ctypes.windll.kernel32.GetCurrentProcess())
+            except Exception:
+                pass
+    threading.Thread(target=_optimizer_loop, daemon=True, name="MemoryOptimizer").start()
+
+_start_memory_optimizer()
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8090))
     print("=" * 60)

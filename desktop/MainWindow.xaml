@@ -253,7 +253,7 @@
 
                         <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <TextBox x:Name="LogsTextBox" Background="Transparent" Foreground="#A7F3D0" BorderThickness="0"
-                                     FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" IsReadOnly="True"/>
+                                     FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" IsReadOnly="True" IsUndoEnabled="False"/>
                         </ScrollViewer>
                     </Grid>
                 </Border>

@@ -15,7 +15,7 @@ class SystemMonitor:
     - Uso de Memória RAM do processo (MB)
     - Taxa de transferência de Vídeo / Streaming das câmeras (Download e Upload em KB/s)
     """
-    def __init__(self, sample_interval=1.5):
+    def __init__(self, sample_interval=2.5):
         self.sample_interval = sample_interval
         self.cpu_percent = 0.0
         self.ram_used_mb = 0.0
@@ -25,10 +25,14 @@ class SystemMonitor:
         self.running = False
         self._thread = None
         self._proc = None
+        self._parent_proc = None
         
         if HAS_PSUTIL:
             try:
                 self._proc = psutil.Process(os.getpid())
+                p = self._proc.parent()
+                if p and p.is_running() and "porteiro" in p.name().lower():
+                    self._parent_proc = p
             except Exception:
                 pass
             self.running = True
@@ -71,13 +75,15 @@ class SystemMonitor:
                         pass
 
                     # Se foi iniciado pelo PorteiroVision.exe (WPF), soma o consumo da casca C#
-                    try:
-                        parent = self._proc.parent()
-                        if parent and parent.is_running() and "porteiro" in parent.name().lower():
-                            total_cpu += parent.cpu_percent(interval=None)
-                            total_rss += parent.memory_info().rss
-                    except Exception:
-                        pass
+                    if self._parent_proc:
+                        try:
+                            if self._parent_proc.is_running():
+                                total_cpu += self._parent_proc.cpu_percent(interval=None)
+                                total_rss += self._parent_proc.memory_info().rss
+                            else:
+                                self._parent_proc = None
+                        except Exception:
+                            self._parent_proc = None
 
                     cpu_cores = psutil.cpu_count() or 1
                     self.cpu_percent = round(total_cpu / cpu_cores, 1)

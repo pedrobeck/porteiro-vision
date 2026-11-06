@@ -50,7 +50,6 @@ class CameraWorker:
         self.proc = None
         self.lock = threading.Lock()
         
-        self.latest_frame = None
         self.latest_jpeg = None
         self.fps = 0.0
         self.frame_count = 0
@@ -83,9 +82,10 @@ class CameraWorker:
             small = cv2.resize(frame, (160, 90), interpolation=cv2.INTER_AREA)
             gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
             gray = cv2.GaussianBlur(gray, blur_size, 0)
+            del small
 
             if self.motion_detector_gray is None:
-                self.motion_detector_gray = gray.copy()
+                self.motion_detector_gray = gray
                 return False
 
             frame_diff = cv2.absdiff(self.motion_detector_gray, gray)
@@ -96,6 +96,9 @@ class CameraWorker:
 
             # Atualiza fundo de referência dinamicamente de forma suave
             self.motion_detector_gray = cv2.addWeighted(self.motion_detector_gray, 0.95, gray, 0.05, 0)
+            del gray
+            del frame_diff
+            del thresh
 
             # Compara com o ratio do perfil selecionado
             if ratio >= min_ratio:
@@ -320,6 +323,7 @@ class CameraWorker:
             # Define opções de baixa latência para OpenCV com FFmpeg
             os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|fflags;nobuffer|max_delay;500000"
             cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             
             if not cap.isOpened():
                 print(f"[Worker {self.cam_id}] Não foi possível abrir o fluxo.")
@@ -349,7 +353,15 @@ class CameraWorker:
                 self.frame_count += 1
                 frames_in_sec += 1
 
-                # Executa detecção de movimento rápida em 1 a cada 2 quadros
+                h, w = frame.shape[:2]
+                # Se a resolução nativa for muito alta (ex: 2K / 4K / Tapo em 2560x1440),
+                # redimensiona para 1280x720 para economizar memória e processamento
+                if w > 1280:
+                    new_h = int(h * (1280.0 / w))
+                    frame = cv2.resize(frame, (1280, new_h), interpolation=cv2.INTER_AREA)
+                    h, w = frame.shape[:2]
+
+                # Executa detecção de movimento rápida em 1 a cada 2 quadros já no frame redimensionado
                 self.motion_frame_skip += 1
                 if self.motion_frame_skip % 2 == 0:
                     self._detect_motion(frame)
@@ -360,14 +372,6 @@ class CameraWorker:
                     self.fps = round(frames_in_sec / (now - fps_timer), 1)
                     frames_in_sec = 0
                     fps_timer = now
-
-                h, w = frame.shape[:2]
-                # Se a resolução nativa for muito alta (ex: 2K / 4K / Tapo em 2560x1440),
-                # redimensiona para 1280x720 para não sobrecarregar a rede Wi-Fi e o processador
-                if w > 1280:
-                    new_h = int(h * (1280.0 / w))
-                    frame = cv2.resize(frame, (1280, new_h), interpolation=cv2.INTER_AREA)
-                    h, w = frame.shape[:2]
 
                 # Estampa d'água de telemetria CCTV no canto do frame real
                 ts_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -381,8 +385,14 @@ class CameraWorker:
                 _, jpeg = cv2.imencode(".jpg", frame, encode_param)
                 
                 with self.lock:
-                    self.latest_frame = frame
                     self.latest_jpeg = jpeg.tobytes()
+
+                del frame
+                del jpeg
+
+                if self.frame_count % 300 == 0:
+                    import gc
+                    gc.collect(1)
 
                 # Pequeno sleep para não saturar 100% de CPU caso a câmera envie acima de 30 FPS
                 time.sleep(0.015)
@@ -552,25 +562,28 @@ class CameraManager:
     def generate_mjpeg(self, cam_id):
         worker = self.get_worker(cam_id)
         last_count = -1
-        while True:
-            if not worker:
-                time.sleep(0.5)
-                worker = self.get_worker(cam_id)
-                continue
-            
-            # Só transmite quando houver novo quadro (evita saturar Wi-Fi do tablet com duplicatas)
-            current_count = worker.frame_count
-            if current_count == last_count:
-                time.sleep(0.03)
-                continue
+        try:
+            while True:
+                if not worker or not worker.running:
+                    time.sleep(0.5)
+                    worker = self.get_worker(cam_id)
+                    continue
+                
+                # Só transmite quando houver novo quadro (evita saturar Wi-Fi do tablet com duplicatas)
+                current_count = worker.frame_count
+                if current_count == last_count:
+                    time.sleep(0.03)
+                    continue
 
-            last_count = current_count
-            frame_bytes = worker.get_jpeg()
-            frame_len = len(frame_bytes)
-            yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n"
-                   b"Content-Length: " + str(frame_len).encode("ascii") + b"\r\n\r\n" +
-                   frame_bytes + b"\r\n")
-            time.sleep(0.035)
+                last_count = current_count
+                frame_bytes = worker.get_jpeg()
+                frame_len = len(frame_bytes)
+                yield (b"--frame\r\n"
+                       b"Content-Type: image/jpeg\r\n"
+                       b"Content-Length: " + str(frame_len).encode("ascii") + b"\r\n\r\n" +
+                       frame_bytes + b"\r\n")
+                time.sleep(0.035)
+        except (GeneratorExit, ConnectionResetError, BrokenPipeError):
+            pass
 
 manager = CameraManager()

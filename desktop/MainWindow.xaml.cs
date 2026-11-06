@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using PorteiroVision.Models;
 using PorteiroVision.Services;
@@ -14,9 +18,49 @@ namespace PorteiroVision;
 
 public partial class MainWindow : Window
 {
+    [DllImport("psapi.dll")]
+    private static extern int EmptyWorkingSet(IntPtr hwProc);
+
     private readonly HubManager _hub = new();
     private Forms.NotifyIcon? _trayIcon;
     private bool _isExplicitExit = false;
+
+    // Buffer de logs limitado para impedir consumo de memória
+    private readonly Queue<string> _logBuffer = new();
+    private const int MaxLogBufferLines = 80;
+    private bool _logUpdatePending = false;
+    private DispatcherTimer? _memoryTrimTimer;
+
+    // Pincéis estáticos congelados (Freeze) para zero alocação de memória no WPF
+    private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b, byte a = 255)
+    {
+        var brush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(a, r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static readonly SolidColorBrush CardBg = CreateFrozenBrush(30, 41, 59);
+    private static readonly SolidColorBrush BorderOnline = CreateFrozenBrush(56, 189, 248, 40);
+    private static readonly SolidColorBrush BorderOffline = CreateFrozenBrush(51, 65, 85);
+    private static readonly SolidColorBrush DotOnline = CreateFrozenBrush(16, 185, 129);
+    private static readonly SolidColorBrush DotOffline = CreateFrozenBrush(239, 68, 68);
+    private static readonly SolidColorBrush BadgeOnline = CreateFrozenBrush(16, 185, 129, 50);
+    private static readonly SolidColorBrush BadgeOffline = CreateFrozenBrush(239, 68, 68, 50);
+    private static readonly SolidColorBrush TitleBrush = CreateFrozenBrush(241, 245, 249);
+    private static readonly SolidColorBrush SubtitleBrush = CreateFrozenBrush(148, 163, 184);
+
+    private sealed class CameraCardUi
+    {
+        public Border Container = null!;
+        public Ellipse Dot = null!;
+        public TextBlock Title = null!;
+        public TextBlock Subtitle = null!;
+        public Border StatusBadge = null!;
+        public TextBlock StatusText = null!;
+    }
+
+    // Cache de cards para nunca destruir e recriar elementos na tela
+    private readonly Dictionary<string, CameraCardUi> _cameraCardCache = new();
 
     public MainWindow()
     {
@@ -31,6 +75,11 @@ public partial class MainWindow : Window
         // Carrega configurações salvas
         StartWithWindowsCheck.IsChecked = AutoStartHelper.IsAutoStartEnabled();
 
+        // Limpeza periódica de memória (Garbage Collection + Windows WorkingSet Trim)
+        _memoryTrimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
+        _memoryTrimTimer.Tick += (s, e) => TrimMemory();
+        _memoryTrimTimer.Start();
+
         // Inicia a central de câmeras automaticamente ao abrir o aplicativo
         Loaded += async (s, e) =>
         {
@@ -40,17 +89,28 @@ public partial class MainWindow : Window
             {
                 App.Trace("MainWindow minimizing to tray on launch");
                 Hide();
+                TrimMemory();
             }
             await _hub.StartAsync();
             App.Trace("MainWindow _hub.StartAsync finished");
         };
     }
 
+    public static void TrimMemory()
+    {
+        try
+        {
+            GC.Collect(2, GCCollectionMode.Forced, false, false);
+            EmptyWorkingSet(Process.GetCurrentProcess().Handle);
+        }
+        catch { }
+    }
+
     private void SetupTrayIcon()
     {
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "icon.ico");
+        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "icon.ico");
         Icon icon;
-        if (File.Exists(iconPath))
+        if (System.IO.File.Exists(iconPath))
         {
             icon = new Icon(iconPath);
         }
@@ -92,8 +152,22 @@ public partial class MainWindow : Window
         {
             Dispatcher.Invoke(() =>
             {
-                LogsTextBox.AppendText(msg + Environment.NewLine);
-                LogScrollViewer.ScrollToEnd();
+                _logBuffer.Enqueue(msg);
+                while (_logBuffer.Count > MaxLogBufferLines)
+                {
+                    _logBuffer.Dequeue();
+                }
+
+                if (!_logUpdatePending)
+                {
+                    _logUpdatePending = true;
+                    Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    {
+                        _logUpdatePending = false;
+                        LogsTextBox.Text = string.Join(Environment.NewLine, _logBuffer);
+                        LogsTextBox.ScrollToEnd();
+                    }));
+                }
             });
         };
 
@@ -104,8 +178,6 @@ public partial class MainWindow : Window
                 UpdateUiState(isRunning);
             });
         };
-
-
 
         _hub.OnStatusUpdated += status =>
         {
@@ -178,32 +250,59 @@ public partial class MainWindow : Window
         }
 
         int onlineCount = 0;
-        CamerasPanel.Children.Clear();
-
-        foreach (var cam in status.Cameras)
+        if (status.Cameras != null)
         {
-            bool isOnline = cam.Status == "ONLINE";
-            if (isOnline) onlineCount++;
+            var presentIds = new HashSet<string>();
+            foreach (var cam in status.Cameras)
+            {
+                presentIds.Add(cam.Id);
+                bool isOnline = cam.Status == "ONLINE";
+                if (isOnline) onlineCount++;
 
-            var card = CreateCameraCard(cam, isOnline);
-            CamerasPanel.Children.Add(card);
+                if (_cameraCardCache.TryGetValue(cam.Id, out var existing))
+                {
+                    // Atualiza em lugar existente sem realocar nada
+                    existing.Title.Text = cam.Name;
+                    existing.Subtitle.Text = $"{cam.Brand.ToUpper()} • IP: {cam.Host} • {cam.Fps:F1} FPS";
+                    existing.StatusText.Text = cam.Status;
+                    existing.StatusText.Foreground = isOnline ? DotOnline : DotOffline;
+                    existing.StatusBadge.Background = isOnline ? BadgeOnline : BadgeOffline;
+                    existing.Dot.Fill = isOnline ? DotOnline : DotOffline;
+                    existing.Container.BorderBrush = isOnline ? BorderOnline : BorderOffline;
+                }
+                else
+                {
+                    if (_cameraCardCache.Count == 0)
+                    {
+                        CamerasPanel.Children.Clear();
+                    }
+                    var cardUi = BuildCameraCard(cam, isOnline);
+                    _cameraCardCache[cam.Id] = cardUi;
+                    CamerasPanel.Children.Add(cardUi.Container);
+                }
+            }
+
+            var removed = _cameraCardCache.Keys.Where(k => !presentIds.Contains(k)).ToList();
+            foreach (var rk in removed)
+            {
+                CamerasPanel.Children.Remove(_cameraCardCache[rk].Container);
+                _cameraCardCache.Remove(rk);
+            }
         }
 
         ActiveCamsText.Text = $"{onlineCount} Online";
     }
 
-    private Border CreateCameraCard(CameraInfo cam, bool isOnline)
+    private CameraCardUi BuildCameraCard(CameraInfo cam, bool isOnline)
     {
         var border = new Border
         {
-            Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 41, 59)),
+            Background = CardBg,
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12, 10, 12, 10),
             Margin = new Thickness(0, 0, 0, 8),
             BorderThickness = new Thickness(1),
-            BorderBrush = new SolidColorBrush(isOnline 
-                ? System.Windows.Media.Color.FromArgb(40, 56, 189, 248) 
-                : System.Windows.Media.Color.FromRgb(51, 65, 85))
+            BorderBrush = isOnline ? BorderOnline : BorderOffline
         };
 
         var grid = new Grid();
@@ -213,12 +312,11 @@ public partial class MainWindow : Window
         var left = new StackPanel { Orientation = System.Windows.Controls.Orientation.Vertical };
         var titlePanel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
 
-        var dotColor = isOnline ? System.Windows.Media.Color.FromRgb(16, 185, 129) : System.Windows.Media.Color.FromRgb(239, 68, 68);
         var dot = new System.Windows.Shapes.Ellipse
         {
             Width = 8,
             Height = 8,
-            Fill = new SolidColorBrush(dotColor),
+            Fill = isOnline ? DotOnline : DotOffline,
             Margin = new Thickness(0, 0, 6, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -228,7 +326,7 @@ public partial class MainWindow : Window
             Text = cam.Name,
             FontWeight = FontWeights.Bold,
             FontSize = 13,
-            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(241, 245, 249)),
+            Foreground = TitleBrush,
             VerticalAlignment = VerticalAlignment.Center
         };
 
@@ -239,7 +337,7 @@ public partial class MainWindow : Window
         {
             Text = $"{cam.Brand.ToUpper()} • IP: {cam.Host} • {cam.Fps:F1} FPS",
             FontSize = 11,
-            Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(148, 163, 184)),
+            Foreground = SubtitleBrush,
             Margin = new Thickness(14, 2, 0, 0)
         };
 
@@ -248,9 +346,7 @@ public partial class MainWindow : Window
 
         var statusBadge = new Border
         {
-            Background = new SolidColorBrush(isOnline 
-                ? System.Windows.Media.Color.FromArgb(50, 16, 185, 129) 
-                : System.Windows.Media.Color.FromArgb(50, 239, 68, 68)),
+            Background = isOnline ? BadgeOnline : BadgeOffline,
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 4, 8, 4),
             VerticalAlignment = VerticalAlignment.Center
@@ -261,9 +357,7 @@ public partial class MainWindow : Window
             Text = cam.Status,
             FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush(isOnline 
-                ? System.Windows.Media.Color.FromRgb(16, 185, 129) 
-                : System.Windows.Media.Color.FromRgb(239, 68, 68))
+            Foreground = isOnline ? DotOnline : DotOffline
         };
         statusBadge.Child = statusText;
 
@@ -273,7 +367,16 @@ public partial class MainWindow : Window
         grid.Children.Add(statusBadge);
 
         border.Child = grid;
-        return border;
+
+        return new CameraCardUi
+        {
+            Container = border,
+            Dot = dot,
+            Title = title,
+            Subtitle = subtitle,
+            StatusBadge = statusBadge,
+            StatusText = statusText
+        };
     }
 
     private async void MainActionBtn_Click(object sender, RoutedEventArgs e)
@@ -319,7 +422,9 @@ public partial class MainWindow : Window
 
     private void ClearLogs_Click(object sender, RoutedEventArgs e)
     {
+        _logBuffer.Clear();
         LogsTextBox.Clear();
+        TrimMemory();
     }
 
     private void StartWithWindowsCheck_Click(object sender, RoutedEventArgs e)
@@ -332,6 +437,7 @@ public partial class MainWindow : Window
     private void MinimizeBtn_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
+        TrimMemory();
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
@@ -339,6 +445,7 @@ public partial class MainWindow : Window
         if (MinimizeToTrayCheck.IsChecked == true)
         {
             Hide();
+            TrimMemory();
             _trayIcon?.ShowBalloonTip(2000, "Porteiro Vision", "A central está rodando em segundo plano na bandeja.", Forms.ToolTipIcon.Info);
         }
         else
@@ -370,6 +477,7 @@ public partial class MainWindow : Window
         {
             e.Cancel = true;
             Hide();
+            TrimMemory();
             _trayIcon?.ShowBalloonTip(2000, "Porteiro Vision", "A central continuará funcionando em segundo plano.", Forms.ToolTipIcon.Info);
         }
         else

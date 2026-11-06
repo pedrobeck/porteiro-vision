@@ -52,6 +52,7 @@ public class HubManager : IDisposable
 
     public async Task<bool> StartAsync()
     {
+        App.Trace($"StartAsync called: IsRunning={IsRunning}, _isStarting={_isStarting}");
         if (IsRunning || _isStarting) return true;
 
         _isStarting = true;
@@ -63,7 +64,9 @@ public class HubManager : IDisposable
             // 1. Verifica se o servidor Python já está ativo e respondendo na porta 8090
             try
             {
-                var check = await _http.GetAsync($"http://127.0.0.1:{Port}/api/status");
+                App.Trace("StartAsync checking http://127.0.0.1:8090/api/status");
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+                var check = await _http.GetAsync($"http://127.0.0.1:{Port}/api/status", cts.Token);
                 if (check.IsSuccessStatusCode)
                 {
                     Log($"[HubManager] Central já ativa e respondendo na porta {Port}.");
@@ -74,10 +77,14 @@ public class HubManager : IDisposable
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                App.Trace($"StartAsync check failed (expected if hub is off): {ex.Message}");
+            }
 
             var pythonExe = FindPythonPath();
             var runHubScript = Path.Combine(ProjectDir, "run_hub.py");
+            App.Trace($"StartAsync pythonExe={pythonExe}, runHubScript={runHubScript}");
 
             if (!File.Exists(runHubScript))
             {
@@ -129,12 +136,14 @@ public class HubManager : IDisposable
                 OnStateChanged?.Invoke(false);
             };
 
+            App.Trace("StartAsync starting _hubProcess...");
             if (!_hubProcess.Start())
             {
                 Log("[Erro] Não foi possível iniciar o processo do Python.");
                 _isStarting = false;
                 return false;
             }
+            App.Trace($"StartAsync _hubProcess started (PID: {_hubProcess.Id})");
 
             _hubProcess.BeginOutputReadLine();
             _hubProcess.BeginErrorReadLine();
@@ -223,6 +232,7 @@ public class HubManager : IDisposable
 
     private void Log(string message)
     {
+        App.Trace(message);
         var formatted = $"[{DateTime.Now:HH:mm:ss}] {message}";
         OnLog?.Invoke(formatted);
     }
