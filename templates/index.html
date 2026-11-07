@@ -9,7 +9,7 @@
   <title>Vision</title>
   
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/css/style.css?v=7.0">
+  <link rel="stylesheet" href="/static/css/style.css?v=7.1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -24,13 +24,9 @@
   <!-- HEADER DE CONTROLE DO PORTEIRO -->
   <!-- HEADER DE CONTROLE MODERNO VISION -->
   <header class="top-bar">
-    <!-- Marca & Indicador de Status -->
+    <!-- Marca -->
     <div class="brand-section">
       <img src="/static/brand/svg/horizontal/vision-horizontal-cor-fundo-escuro.svg" alt="Vision" class="brand-logo-img">
-      <div class="brand-status-pill">
-        <span class="live-pulse"></span>
-        <span id="brandStatusText">ONLINE</span>
-      </div>
     </div>
 
     <!-- Seletor de Layouts (Segmented Control Compacto) -->
@@ -41,51 +37,61 @@
       <button class="layout-btn" data-layout="hero" title="Modo Foco: Câmera Principal + Miniaturas">Foco</button>
     </div>
 
-    <!-- Ações e Modos Operacionais -->
+    <!-- Ações e Modos Operacionais (Apenas Ícones Grandes e Destacados) -->
     <div class="header-actions">
-      <!-- Modos Principais em Destaque -->
-      <button class="mode-pill-btn mode-vigia" id="nightModeBtn" onclick="openNightModeModal()" title="Modo Vigia Noturna">
-        <span class="mode-icon">🌙</span>
-        <span class="mode-text">Vigia</span>
+      <!-- Vigia Noturna -->
+      <button class="header-action-btn mode-vigia" id="nightModeBtn" onclick="openNightModeModal()" title="Modo Vigia Noturna (Detecção Inteligente)">
+        <span class="btn-icon">🌙</span>
       </button>
 
-      <button class="mode-pill-btn mode-events" id="eventsBtn" onclick="openEventsModal()" title="Histórico de Gravações & Eventos">
-        <span class="mode-icon">🎬</span>
-        <span class="mode-text">Eventos</span>
+      <!-- Gravações e Eventos -->
+      <button class="header-action-btn mode-events" id="eventsBtn" onclick="openEventsModal()" title="Histórico de Gravações & Eventos">
+        <span class="btn-icon">🎬</span>
         <span class="events-badge-count" id="eventsCountBadge" style="display: none;">0</span>
       </button>
 
-      <button class="mode-pill-btn mode-standby" id="standbyBtn" onclick="toggleStandbyMode()" title="Patrulha em Tela Cheia">
-        <span class="mode-icon">💤</span>
+      <!-- Standby (Patrulha Randômica) -->
+      <button class="header-action-btn mode-standby" id="standbyBtn" onclick="toggleStandbyMode()" title="Patrulha em Tela Cheia (Standby)">
+        <span class="btn-icon">💤</span>
       </button>
 
       <div class="header-divider"></div>
 
-      <!-- Ferramentas Rápidas (Apenas Ícones com Tooltip) -->
-      <button class="icon-tool-btn" id="themePickerBtn" onclick="cycleTheme()" title="Trocar Fundo Visual (OLED, Carbono, Grafite, Meia-Noite)">
-        🎨<span id="themePickerLabel" style="display: none;">OLED</span>
+      <!-- Trocar Tema de Fundo -->
+      <button class="header-action-btn tool-theme" id="themePickerBtn" onclick="cycleTheme()" title="Trocar Fundo Visual (OLED, Carbono, Grafite, Meia-Noite)">
+        <svg class="header-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"></path>
+        </svg>
+        <span id="themePickerLabel" style="display: none;">OLED</span>
       </button>
 
-      <button class="icon-tool-btn" id="notifTestBtn" onclick="testToastNotification()" title="Testar Notificação Windows (Toast com Foto)">
-        🔔
+      <!-- Teste de Notificação Toast Windows -->
+      <button class="header-action-btn tool-notif" id="notifTestBtn" onclick="testToastNotification()" title="Testar Notificação Windows (Toast com Foto)">
+        <span class="btn-icon">🔔</span>
       </button>
 
-      <button class="icon-tool-btn reload-btn" id="reloadBtn" onclick="refreshApp()" title="Atualizar Câmeras e Streams">
+      <!-- Atualizar Câmeras -->
+      <button class="header-action-btn tool-reload reload-btn" id="reloadBtn" onclick="refreshApp()" title="Atualizar Câmeras e Streams">
         <span class="reload-icon">🔄</span>
       </button>
 
-      <button class="icon-tool-btn" onclick="toggleFullscreen()" title="Tela Cheia">
-        ⛶
+      <!-- Tela Cheia -->
+      <button class="header-action-btn tool-fullscreen" id="fullscreenBtn" onclick="toggleFullscreen(event)" title="Alternar Tela Cheia">
+        <svg class="header-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </svg>
       </button>
 
-      <!-- Botão Primário Compacto -->
-      <button class="btn-primary-compact" onclick="openAddCameraModal()" title="Adicionar Nova Câmera">
-        <span>+</span> Câmera
+      <!-- Adicionar Câmera (+) -->
+      <button class="btn-primary-add" id="addCameraBtn" onclick="openAddCameraModal()" title="Cadastrar Nova Câmera">
+        +
       </button>
     </div>
 
     <!-- Elementos mantidos ocultos para compatibilidade com o JS existente -->
     <div style="display: none;">
+      <span id="brandStatusText">ONLINE</span>
       <div id="localIpPill"></div>
       <div id="hubStatusPill"><span id="hubDot"></span><span id="hubStatusText"></span></div>
       <div id="systemStatsBar">
@@ -610,7 +616,7 @@
     </div>
   </div>
 
-  <script type="module" src="/static/js/porteiro-stream.js?v=7.0"></script>
-  <script src="/static/js/app.js?v=7.0"></script>
+  <script type="module" src="/static/js/porteiro-stream.js?v=7.1"></script>
+  <script src="/static/js/app.js?v=7.1"></script>
 </body>
 </html>

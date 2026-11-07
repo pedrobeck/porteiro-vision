@@ -187,14 +187,11 @@ function updateExistingGridLabels(cameras) {
       const nameEl = cell.querySelector(".camera-name");
       if (nameEl) {
         const isSubLens = !!cam.is_sub_lens;
-        nameEl.innerHTML = `
-          ${escapeHtml(cam.name)}
-          ${isSubLens ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); margin-left: 6px; font-weight: 700; vertical-align: middle;">FIXA</span>` : ''}
-        `;
+        nameEl.innerHTML = `${escapeHtml(cam.name)}${isSubLens ? `<span class="badge-sublens">FIXA</span>` : ''}`;
       }
-      const metaEl = cell.querySelector(".camera-meta");
-      if (metaEl) {
-        metaEl.textContent = `${cam.status || "CONECTANDO"} | ${cam.fps || 0} FPS`;
+      const indicator = cell.querySelector(".status-indicator");
+      if (indicator && cam.status) {
+        indicator.className = `status-indicator ${cam.status.toLowerCase()}`;
       }
     }
   });
@@ -268,12 +265,8 @@ function updateCameraStatuses(statuses) {
     const cell = document.querySelector(`.camera-cell[data-id="${st.id}"]`);
     if (cell) {
       const indicator = cell.querySelector(".status-indicator");
-      const meta = cell.querySelector(".camera-meta");
       if (indicator) {
         indicator.className = `status-indicator ${st.status.toLowerCase()}`;
-      }
-      if (meta) {
-        meta.textContent = `${st.status} | ${st.fps || 0} FPS`;
       }
 
       // Indicador REC de gravação ativa na câmera (Fase 3)
@@ -368,21 +361,15 @@ function renderGrid() {
       <div class="cell-header">
         <div class="cell-title-box">
           <div class="status-indicator ${cam.status ? cam.status.toLowerCase() : 'connecting'}"></div>
-          <div>
-            <div class="camera-name">
-              ${escapeHtml(cam.name)}
-              ${isSubLens ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); margin-left: 6px; font-weight: 700; vertical-align: middle;">FIXA</span>` : ''}
-            </div>
-            <div class="camera-meta">${cam.status || "CONECTANDO"} | ${cam.fps || 0} FPS</div>
+          <div class="camera-name">
+            ${escapeHtml(cam.name)}
+            ${isSubLens ? `<span class="badge-sublens">FIXA</span>` : ''}
           </div>
         </div>
         <div class="cell-actions">
           ${multiLensBtn}
-          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
-          <button class="action-icon-btn btn-fill" id="btn-fill-${cam.id}" title="Alternar Ajustar na Tela ou Preencher sem bordas" onclick="toggleCameraFill('${cam.id}', event)">⛶</button>
-          <button class="action-icon-btn" title="Capturar Foto" onclick="takeSnapshot('${cam.id}', event)">📸</button>
-          <button class="action-icon-btn btn-focus-toggle" title="Ampliar / Tela Cheia" onclick="toggleFocusCamera('${cam.id}', event)">🔍</button>
-          ${!isSubLens ? `<button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
+          <button class="cell-lupa-btn" title="Ampliar Câmera (Foco)" onclick="toggleFocusCamera('${cam.id}', event)">🔍</button>
+          ${!isSubLens ? `<button class="action-icon-btn btn-settings" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
       ${feedHtml}
@@ -437,8 +424,16 @@ function renderGrid() {
     }
 
     cell.addEventListener("click", (e) => {
-      if (!e.target.closest("button") && !e.target.closest(".ptz-joystick") && !needsHubConfig) {
-        toggleFocusCamera(cam.id);
+      if (e.target.closest("button") || e.target.closest(".ptz-joystick") || needsHubConfig) return;
+      
+      // Se a célula já estiver em foco (tela cheia), não precisa alternar
+      if (cell.classList.contains("focused")) return;
+
+      // Ao clicar na imagem, alterna a exibição da Lupa e configurações
+      const isShowing = cell.classList.contains("show-lupa");
+      document.querySelectorAll(".camera-cell.show-lupa").forEach(c => c.classList.remove("show-lupa"));
+      if (!isShowing) {
+        cell.classList.add("show-lupa");
       }
     });
 
@@ -507,6 +502,7 @@ function unfocusCamera() {
     const old = document.querySelector(`.camera-cell[data-id="${prevId}"]`);
     if (old) {
       old.classList.remove("focused");
+      old.classList.remove("show-lupa");
       const ptz = document.getElementById(`ptz-${prevId}`);
       if (ptz) ptz.style.display = "none";
     }
@@ -541,14 +537,47 @@ function toggleCameraQuality(camId, event) {
   }, { once: true });
 }
 
-function toggleFullscreen(event) {
-  if (event) event.stopPropagation();
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen().catch(() => {});
+function isFullscreen() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+async function toggleFullscreen(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
+  try {
+    if (!isFullscreen()) {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        await el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      } else if (el.webkitRequestFullScreen) {
+        await el.webkitRequestFullScreen();
+      } else if (el.mozRequestFullScreen) {
+        await el.mozRequestFullScreen();
+      } else if (el.msRequestFullscreen) {
+        await el.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        await document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen();
+      }
+    }
+  } catch (err) {
+    console.warn("[Fullscreen] Falha ao alternar tela cheia:", err);
   }
 }
+window.toggleFullscreen = toggleFullscreen;
 
 // --- SNAPSHOT & PTZ ---
 function takeSnapshot(camId, event) {
@@ -1888,6 +1917,7 @@ function initTheme() {
 
 function applyTheme(themeId) {
   document.documentElement.setAttribute("data-theme", themeId);
+  if (document.body) document.body.setAttribute("data-theme", themeId);
   localStorage.setItem("vision_theme", themeId);
   const label = document.getElementById("themePickerLabel");
   const found = THEMES.find(t => t.id === themeId);
@@ -1901,7 +1931,13 @@ function cycleTheme() {
   const idx = THEMES.findIndex(t => t.id === current);
   const next = THEMES[(idx + 1) % THEMES.length];
   applyTheme(next.id);
+  const cleanName = next.label.replace('Fundo: ', '');
+  if (typeof showToast === "function") {
+    showToast(`🎨 Tema: ${cleanName}`, 2200);
+  }
 }
+window.cycleTheme = cycleTheme;
+window.applyTheme = applyTheme;
 
 // Alterna entre Ajustar na Tela (contain) e Preencher 100% da Tela sem bordas (cover)
 function toggleCameraFill(camId, event) {
