@@ -10,7 +10,7 @@
   <title>Vision</title>
   
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/css/style.css?v=20261107-1240">
+  <link rel="stylesheet" href="/static/css/style.css?v=20261107-1245">
   <style>
     /* PADRONIZAÇÃO ROBUSTA CFTV 16:9 & TOUCH-FRIENDLY VISION */
     .camera-cell {
@@ -107,9 +107,19 @@
       color: #e2e8f0 !important;
     }
     .header-mobile-bar {
-      display: flex !important;
       align-items: center !important;
       gap: 12px !important;
+    }
+    .mobile-only {
+      display: none !important;
+    }
+    @media (max-width: 768px), (orientation: portrait) and (max-width: 1024px) {
+      .desktop-only {
+        display: none !important;
+      }
+      .mobile-only {
+        display: flex !important;
+      }
     }
     .hamburger-btn,
     .header-action-btn {
@@ -384,9 +394,9 @@
       </button>
 
       <!-- Baixar App Tablet / Celular (.APK) -->
-      <button class="header-action-btn tool-apk" id="apkDownloadBtn" onclick="openApkModal()" title="Baixar Aplicativo Android Nativo (.APK) para Tablet ou Celular">
+      <a href="/download/Vision.apk" download="Vision.apk" class="header-action-btn tool-apk" id="apkDownloadBtn" title="Baixar App Vision (.APK) Direto">
         <span class="btn-icon">📱</span>
-      </button>
+      </a>
 
       <!-- Adicionar Câmera (+) -->
       <button class="btn-primary-add" id="addCameraBtn" onclick="openAddCameraModal()" title="Cadastrar Nova Câmera">
@@ -525,13 +535,13 @@
             </div>
           </button>
 
-          <button class="drawer-menu-item item-apk" onclick="openApkModal()" title="Baixar aplicativo nativo Android (.APK)">
+          <a href="/download/Vision.apk" download="Vision.apk" class="drawer-menu-item item-apk" title="Baixar aplicativo nativo Android (.APK)" style="text-decoration: none;">
             <div class="drawer-item-icon" style="background: rgba(0, 230, 118, 0.15); color: #00e676;">📱</div>
             <div class="drawer-item-text">
               <strong style="color: #00e676;">Baixar App Tablet / Celular (.APK)</strong>
-              <span>Instalar aplicativo nativo Android</span>
+              <span>Download direto do aplicativo nativo</span>
             </div>
-          </button>
+          </a>
 
         </div>
       </div>
@@ -1098,7 +1108,7 @@
     </div>
   </div>
 
-  <script type="module" src="/static/js/porteiro-stream.js?v=20261107-1240"></script>
-  <script src="/static/js/app.js?v=20261107-1240"></script>
+  <script type="module" src="/static/js/porteiro-stream.js?v=20261107-1245"></script>
+  <script src="/static/js/app.js?v=20261107-1245"></script>
 </body>
 </html>
