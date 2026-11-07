@@ -135,10 +135,11 @@ public class WebServer : IDisposable
             else ctx.Response.StatusCode = 404;
         });
 
-        // 3. Download APK
-        app.MapGet("/download/Vision.apk", ServeApk);
-        app.MapGet("/download/PorteiroVision.apk", ServeApk);
-        app.MapGet("/download/apk", ServeApk);
+        // 3. Download APK (Suporta GET e HEAD para DownloadManager nativo do Android)
+        var apkMethods = new[] { "GET", "HEAD" };
+        app.MapMethods("/download/Vision.apk", apkMethods, ServeApk);
+        app.MapMethods("/download/PorteiroVision.apk", apkMethods, ServeApk);
+        app.MapMethods("/download/apk", apkMethods, ServeApk);
 
         async Task ServeApk(HttpContext ctx)
         {
@@ -149,8 +150,18 @@ public class WebServer : IDisposable
             }
             if (File.Exists(apkPath))
             {
+                var fi = new FileInfo(apkPath);
                 ctx.Response.ContentType = "application/vnd.android.package-archive";
+                ctx.Response.ContentLength = fi.Length;
                 ctx.Response.Headers["Content-Disposition"] = "attachment; filename=\"Vision.apk\"";
+                ctx.Response.Headers["Accept-Ranges"] = "bytes";
+                ctx.Response.Headers["Cache-Control"] = "public, max-age=3600";
+
+                if (HttpMethods.IsHead(ctx.Request.Method))
+                {
+                    return;
+                }
+
                 await ctx.Response.SendFileAsync(apkPath);
             }
             else
