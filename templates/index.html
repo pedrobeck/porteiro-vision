@@ -10,16 +10,57 @@
   <title>Vision</title>
   
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/css/style.css?v=8.0">
+  <link rel="stylesheet" href="/static/css/style.css?v=20261107-0200">
   <style>
-    /* GARANTIA TOUCH: Espaçamento amplo e hitboxes generosas sem depender de cache */
+    /* DESIGN SYSTEM CCTV VISION: Proporção Padrão 16:9, Espaçamento Touch e Modais Consistentes */
+    .camera-cell {
+      aspect-ratio: 16 / 9 !important;
+      min-height: 0 !important;
+      background: #000000 !important;
+      border-radius: 12px !important;
+      overflow: hidden !important;
+    }
+    .feed-wrapper {
+      aspect-ratio: auto !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: #000000 !important;
+    }
+    .cell-header {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      padding: 6px 8px !important;
+      background: linear-gradient(180deg, rgba(6, 9, 14, 0.85) 0%, rgba(6, 9, 14, 0) 100%) !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      z-index: 10 !important;
+      pointer-events: none !important;
+    }
+    .cell-title-box {
+      pointer-events: auto !important;
+      background: rgba(13, 22, 39, 0.82) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      padding: 3px 8px !important;
+      border-radius: 14px !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      max-width: calc(100% - 140px) !important;
+    }
+    .camera-name {
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      color: #ffffff !important;
+    }
     .cell-actions {
       display: inline-flex !important;
       align-items: center !important;
-      gap: 14px !important;
+      gap: 10px !important;
       opacity: 1 !important;
       pointer-events: auto !important;
-      z-index: 10 !important;
+      z-index: 12 !important;
     }
     .cell-actions button {
       pointer-events: auto !important;
@@ -28,13 +69,13 @@
       -webkit-tap-highlight-color: transparent !important;
     }
     .btn-quality {
-      min-width: 48px !important;
-      height: 38px !important;
-      font-size: 11.5px !important;
+      min-width: 44px !important;
+      height: 32px !important;
+      font-size: 11px !important;
       font-weight: 700 !important;
-      letter-spacing: 0.6px !important;
-      padding: 0 12px !important;
-      border-radius: 9px !important;
+      letter-spacing: 0.5px !important;
+      padding: 0 8px !important;
+      border-radius: 8px !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
@@ -51,23 +92,55 @@
     }
     .action-icon-btn.btn-focus-toggle,
     .action-icon-btn.btn-settings {
-      width: 38px !important;
-      height: 38px !important;
-      border-radius: 9px !important;
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 8px !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      font-size: 16px !important;
+      font-size: 15px !important;
       background: rgba(13, 22, 39, 0.85) !important;
       border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      color: #e2e8f0 !important;
     }
     .header-mobile-bar {
-      gap: 12px !important;
+      gap: 10px !important;
     }
     .hamburger-btn,
     .header-action-btn {
-      width: 38px !important;
-      height: 38px !important;
+      width: 36px !important;
+      height: 36px !important;
+      border-radius: 9px !important;
+    }
+    /* MODAL DE CADASTRO LIMPO E PADRONIZADO */
+    .modal-card {
+      background: #0d1627 !important;
+      border: 1px solid rgba(61, 214, 245, 0.25) !important;
+      border-radius: 16px !important;
+      width: min(520px, calc(100vw - 20px)) !important;
+      max-height: 92dvh !important;
+      overflow: hidden !important;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.9) !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .modal-body {
+      padding: 16px 18px !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+    .modal-footer {
+      padding: 12px 18px !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+      background: rgba(10, 16, 28, 0.6) !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      flex-wrap: wrap !important;
+    }
+    .modal-footer button {
+      min-height: 40px !important;
+      touch-action: manipulation !important;
     }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -97,7 +170,7 @@
       <button class="layout-btn" data-layout="hero" title="Modo Foco: Câmera Principal + Miniaturas">Foco</button>
     </div>
 
-    <!-- Ações e Modos Operacionais (Apenas Ícones Grandes e Destacados - Desktop) -->
+    <!-- Ações e Modos Operacionais (Apenas ÍÍÍcones Grandes e Destacados - Desktop) -->
     <div class="header-actions desktop-only">
       <!-- Vigia Noturna -->
       <button class="header-action-btn mode-vigia" id="nightModeBtn" onclick="openNightModeModal()" title="Modo Vigia Noturna (Detecção Inteligente)">
@@ -308,14 +381,14 @@
     </div>
   </div>
 
-  <!-- ÁREA DE GRADE DE VÍDEO DAS CÂMERAS -->
+  <!-- ÁREA DE GRADE DE VÍDEO DAS CMERAS -->
   <main class="viewport-container">
     <div id="cameraGrid" class="camera-grid layout-auto">
       <!-- Câmeras injetadas dinamicamente via app.js -->
     </div>
   </main>
 
-  <!-- MODAL DE CADASTRO / EDIÇÃO DE CÂMERA -->
+  <!-- MODAL DE CADASTRO / EDIÇO DE CÂMERA -->
   <div class="modal-backdrop" id="cameraModal">
     <div class="modal-card">
       <div class="modal-header">
@@ -331,24 +404,24 @@
             <input type="text" id="camName" class="form-control" placeholder="Ex: Portão Social, Garagem, Entrada" required>
           </div>
 
-          <div class="form-row">
-            <div class="form-group" style="flex: 2;">
-              <label>Marca / Fabricante</label>
-              <select id="camBrand" class="form-control">
-                <option value="icsee">iCSee / Xiongmai (H264DVR)</option>
-                <option value="intelbras">Intelbras / Dahua</option>
-                <option value="tapo">TP-Link Tapo</option>
-                <option value="hikvision">Hikvision / Ezviz</option>
-                <option value="generic">Outro / RTSP Genérico</option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label>Marca / Fabricante</label>
+            <select id="camBrand" class="form-control">
+              <option value="icsee">iCSee / Xiongmai (H264DVR)</option>
+              <option value="intelbras">Intelbras / Dahua</option>
+              <option value="tapo">TP-Link Tapo</option>
+              <option value="hikvision">Hikvision / Ezviz</option>
+              <option value="generic">Outro / RTSP Genérico</option>
+            </select>
+          </div>
 
-            <div class="form-group" style="flex: 1;">
+          <div class="form-row">
+            <div class="form-group">
               <label>Canal / Lente</label>
               <input type="number" id="camChannel" class="form-control" value="1" min="1" max="32" placeholder="1" title="Para DVRs ou câmeras multi-lente (1, 2, 3...)">
             </div>
             
-            <div class="form-group" style="flex: 2;">
+            <div class="form-group">
               <label>Qualidade de Fluxo</label>
               <select id="camStreamType" class="form-control">
                 <option value="sub" selected>Sub-stream (Mais leve e fluido)</option>
@@ -358,12 +431,12 @@
           </div>
 
           <div class="form-row">
-            <div class="form-group">
+            <div class="form-group" style="flex: 2;">
               <label>Endereço IP ou Host</label>
               <input type="text" id="camHost" class="form-control" placeholder="Ex: 192.168.4.41" required>
             </div>
             
-            <div class="form-group">
+            <div class="form-group" style="flex: 1;">
               <label>Porta RTSP</label>
               <input type="number" id="camPort" class="form-control" value="554">
             </div>
@@ -381,19 +454,19 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; color: #fff;">
+          <div class="form-group" style="background: rgba(255, 255, 255, 0.03); padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; color: #fff; margin: 0;">
               <input type="checkbox" id="camPtzEnabled"> 
-              Habilitar Controle de Movimento Motorizado (PTZ)
+              <span>Habilitar Controle de Movimento Motorizado (PTZ)</span>
             </label>
           </div>
 
-          <div class="form-group" id="groupMultiLens">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; color: var(--accent-cyan);">
+          <div class="form-group" id="groupMultiLens" style="background: rgba(61, 214, 245, 0.05); padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(61, 214, 245, 0.2);">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; text-transform: none; color: var(--accent-cyan); margin: 0;">
               <input type="checkbox" id="camMultiLens"> 
-              👁️ Ativar as 3 Lentes Simultâneas (1 Móvel PTZ + 2 Fixas Panorâmicas)
+              <span>👁️ Ativar as 3 Lentes Simultâneas (1 Móvel PTZ + 2 Fixas Panorâmicas)</span>
             </label>
-            <div style="font-size: 11px; color: var(--text-muted); margin-left: 24px; margin-top: 2px;">
+            <div style="font-size: 11px; color: var(--text-muted); margin-left: 24px; margin-top: 3px;">
               Exclusivo para câmeras iCSee/Xiongmai com 3 lentes físicas.
             </div>
           </div>
@@ -422,7 +495,7 @@
 
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="deleteCameraBtn" style="color: var(--accent-danger); margin-right: auto; display: none;">
-          Excluir
+          🗑️ Excluir
         </button>
         <button type="button" class="btn-secondary" id="testConnectionBtn">
           🔍 Testar Conexão
@@ -431,13 +504,13 @@
           Cancelar
         </button>
         <button type="button" class="btn-primary" id="saveCameraBtn">
-          Salvar Câmera
+          💾 Salvar Câmera
         </button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL DE CONFIGURAÇÃO DO HUB CLOUDFLARE -->
+  <!-- MODAL DE CONFIGURAÇO DO HUB CLOUDFLARE -->
   <div class="modal-backdrop" id="hubModal">
     <div class="modal-card" style="max-width: 460px;">
       <div class="modal-header">
@@ -488,20 +561,19 @@
 
       <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
         <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0;">
-          Instale o aplicativo nativo para ter aceleração de vídeo por hardware, tela cheia real sem barras do navegador e melhor desempenho no seu dispositivo.
+          Instale o aplicativo nativo para Android no seu tablet ou smartphone para ter tela cheia contínua, sem barras do navegador e com inicialização rápida.
         </p>
 
-        <!-- Botão Principal: Download Direto do Servidor Local -->
-        <a href="/download/Vision.apk" class="btn-primary" download="Vision.apk" style="padding: 13px 18px; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; border-radius: 9px; box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4); text-align: center;">
-          <span>📥</span> Baixar Vision.apk (Local - 5.6 MB)
-        </a>
+        <!-- Botão 1: Download Direto Oficial (GitHub Releases HTTPS) -->
+        <button type="button" onclick="triggerApkDownload('github')" class="btn-primary" style="padding: 14px 18px; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 10px; box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4); text-align: center; cursor: pointer; width: 100%; border: none;">
+          <span>🌐</span> Baixar Vision.apk (Download Seguro HTTPS)
+        </button>
 
-        <!-- Botão Secundário: Download Alternativo pelo GitHub Releases -->
-        <a href="https://github.com/pedrobeck/porteiro-vision/releases/latest" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding: 11px 16px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; border-radius: 9px; text-align: center;">
-          <span>🌐</span> Baixar via GitHub Releases
-        </a>
+        <!-- Botão 2: Download Direto do Servidor Local -->
+        <button type="button" onclick="triggerApkDownload('local')" class="btn-secondary" style="padding: 12px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; text-align: center; cursor: pointer; width: 100%;">
+          <span>📥</span> Baixar Direto do PC Local (5.6 MB)
+        </button>
 
-        <!-- Instruções de Instalação no Android -->
         <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #fbbf24; line-height: 1.5;">
           <strong>💡 Dica de Instalação:</strong><br>
           Se o Android avisar <em>"O arquivo pode ser nocivo"</em>, toque em <strong>Fazer o download mesmo assim</strong>. Após baixar, toque em <strong>Abrir</strong> e selecione <strong>Instalar</strong>.
@@ -510,7 +582,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE CONFIGURAÇÃO DO MODO NOTURNO INTELIGENTE (REDESIGN VISION) -->
+  <!-- MODAL DE CONFIGURAÇO DO MODO NOTURNO INTELIGENTE (REDESIGN VISION) -->
   <div class="modal-backdrop" id="nightModeModal">
     <div class="modal-card vigia-modal-card">
       <div class="vigia-header">
@@ -857,7 +929,7 @@
     </div>
   </div>
 
-  <script type="module" src="/static/js/porteiro-stream.js?v=7.8"></script>
-  <script src="/static/js/app.js?v=7.8"></script>
+  <script type="module" src="/static/js/porteiro-stream.js?v=20261107-0200"></script>
+  <script src="/static/js/app.js?v=20261107-0200"></script>
 </body>
 </html>

@@ -20,26 +20,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   registerPWA();
 });
 
-// --- PWA SERVICE WORKER ---
+// --- PWA SERVICE WORKER (DESATIVADO PARA PURGA TOTAL DE CACHE) ---
 function registerPWA() {
   if ("serviceWorker" in navigator) {
-    if (isLocalEnvironment()) {
-      // No ambiente local de casa (PC/Tablet), desregistra Service Worker para eliminar cache e lentidão
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const reg of registrations) {
-          reg.unregister();
-        }
-      });
-      if ("caches" in window) {
-        caches.keys().then((keys) => {
-          keys.forEach((k) => caches.delete(k));
-        });
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        reg.unregister();
       }
-    } else {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    });
+  }
+  if ("caches" in window) {
+    caches.keys().then((keys) => {
+      keys.forEach((k) => caches.delete(k));
+    });
   }
 }
+
+// --- FUNÇÃO ROBUSTA DE DOWNLOAD DO APK ---
+function triggerApkDownload(source) {
+  const url = source === 'local' 
+    ? '/download/Vision.apk?t=' + Date.now()
+    : 'https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk';
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', 'Vision.apk');
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    try { a.remove(); } catch (e) {}
+  }, 1000);
+}
+window.triggerApkDownload = triggerApkDownload;
 
 // --- STREAM HUB URL & CLOUDFLARE TUNNEL (MODO HÍBRIDO AUTOMÁTICO) ---
 function isLocalEnvironment() {
@@ -378,11 +392,11 @@ function renderGrid() {
             ${isSubLens ? `<span class="badge-sublens">FIXA</span>` : ''}
           </div>
         </div>
-        <div class="cell-actions" style="display: inline-flex !important; align-items: center !important; gap: 14px !important;">
+        <div class="cell-actions">
           ${multiLensBtn}
-          <button class="btn-quality" id="btn-quality-${cam.id}" style="min-width: 48px !important; height: 38px !important; font-size: 11.5px !important; margin: 0 !important;" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
-          <button class="action-icon-btn btn-focus-toggle" style="width: 38px !important; height: 38px !important; font-size: 16px !important; margin: 0 !important;" title="Maximizar / Foco" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
-          ${!isSubLens ? `<button class="action-icon-btn btn-settings" style="width: 38px !important; height: 38px !important; font-size: 16px !important; margin: 0 !important;" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
+          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
+          <button class="action-icon-btn btn-focus-toggle" title="Maximizar / Foco" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
+          ${!isSubLens ? `<button class="action-icon-btn btn-settings" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
       ${feedHtml}

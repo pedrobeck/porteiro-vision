@@ -974,8 +974,8 @@ body:fullscreen {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
-  aspect-ratio: 16 / 10;
-  min-height: 220px;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
 }
 
 .camera-cell:hover {
@@ -1002,13 +1002,14 @@ body:fullscreen {
 /* FEED SCREEN */
 .feed-wrapper {
   flex: 1;
+  width: 100%;
+  height: 100%;
   position: relative;
-  background: #06080c;
+  background: #000000;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
 }
 
 /* Fundo Dinamico Ambiente: Acaba 100% com o vazio preto morto atras dos videos */
@@ -1399,10 +1400,10 @@ video::-webkit-media-controls-overlay-enclosure,
   border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   max-height: 90dvh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
 }

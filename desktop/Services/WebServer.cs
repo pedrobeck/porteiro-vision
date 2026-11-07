@@ -155,10 +155,12 @@ public class WebServer : IDisposable
             if (File.Exists(apkPath))
             {
                 var fi = new FileInfo(apkPath);
+                ctx.Response.StatusCode = 200;
                 ctx.Response.ContentType = "application/vnd.android.package-archive";
                 ctx.Response.ContentLength = fi.Length;
                 ctx.Response.Headers["Content-Disposition"] = "attachment; filename=\"Vision.apk\"";
                 ctx.Response.Headers["Accept-Ranges"] = "bytes";
+                ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
                 ctx.Response.Headers["Cache-Control"] = "public, max-age=3600";
 
                 if (HttpMethods.IsHead(ctx.Request.Method))
@@ -170,7 +172,7 @@ public class WebServer : IDisposable
             }
             else
             {
-                ctx.Response.Redirect("https://github.com/pedrobeck/porteiro-vision/releases/latest");
+                ctx.Response.Redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk");
             }
         }
 
