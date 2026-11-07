@@ -1278,6 +1278,18 @@ let nightClockInterval = null;
 let nightPosterInterval = null;
 let nightAudioCtx = null;
 
+function selectDurationPill(val) {
+  document.querySelectorAll(".vigia-duration-pill").forEach(p => {
+    if (p.getAttribute("data-val") === String(val)) {
+      p.classList.add("active");
+    } else {
+      p.classList.remove("active");
+    }
+  });
+  const sel = document.getElementById("nightDurationSelect");
+  if (sel) sel.value = String(val);
+}
+
 function openNightModeModal() {
   const modal = document.getElementById("nightModeModal");
   const select = document.getElementById("nightCameraSelect");
@@ -1313,6 +1325,7 @@ function openNightModeModal() {
   const savedDuration = localStorage.getItem("night_duration") || "30";
   const durationSelect = document.getElementById("nightDurationSelect");
   if (durationSelect) durationSelect.value = savedDuration;
+  selectDurationPill(savedDuration);
 
   const savedSound = localStorage.getItem("night_sound");
   const soundCheck = document.getElementById("nightSoundEnabled");

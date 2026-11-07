@@ -9,7 +9,7 @@
   <title>Vision</title>
   
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/css/style.css?v=6.0">
+  <link rel="stylesheet" href="/static/css/style.css?v=6.5">
     <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -285,111 +285,120 @@
     </div>
   </div>
 
-  <!-- MODAL DE CONFIGURAÇÃO DO MODO NOTURNO INTELIGENTE -->
+  <!-- MODAL DE CONFIGURAÇÃO DO MODO NOTURNO INTELIGENTE (REDESIGN VISION) -->
   <div class="modal-backdrop" id="nightModeModal">
-    <div class="modal-card" style="max-width: 440px;">
-      <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 20px;">🌙</span>
-          <h2>Modo Noturno Inteligente</h2>
+    <div class="modal-card vigia-modal-card">
+      <div class="vigia-header">
+        <div class="vigia-header-left">
+          <div class="vigia-header-icon">🌙</div>
+          <div class="vigia-title-wrap">
+            <h3>Modo Vigia Noturna</h3>
+            <span>Monitoramento inteligente em tela escura</span>
+          </div>
         </div>
         <button class="close-btn" onclick="closeNightModeModal()">&times;</button>
       </div>
 
-      <div class="modal-body" style="padding: 16px 20px;">
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
-          A tela do tablet fica <strong>completamente escura</strong> (não ilumina o quarto) e <strong>acende na hora em tela cheia</strong> se a câmera selecionada detectar alguém se movimentando.
-        </p>
-
-        <!-- Câmera Monitorada -->
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label for="nightCameraSelect" style="font-size: 12px; font-weight: 700; color: var(--accent-cyan);">
-            📹 Câmera que Dispara o Alerta (Gatilho)
-          </label>
-          <select id="nightCameraSelect" class="form-input" style="font-weight: 600; cursor: pointer;">
-            <!-- Opções preenchidas dinamicamente via JS -->
-          </select>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-            Exemplo: Selecione a <strong>Câmera Garagem</strong> para vigiar a entrada de carros e pessoas.
+      <div class="vigia-body">
+        <!-- 1. Grid Câmera & Sensibilidade -->
+        <div class="vigia-grid-2">
+          <div>
+            <label class="vigia-field-label" for="nightCameraSelect">📹 Câmera Alvo</label>
+            <select id="nightCameraSelect" class="vigia-select">
+              <!-- Opções preenchidas dinamicamente via JS -->
+            </select>
+          </div>
+          <div>
+            <label class="vigia-field-label" for="nightSensitivitySelect">🎯 Sensibilidade</label>
+            <select id="nightSensitivitySelect" class="vigia-select">
+              <option value="low">🛡️ Baixa</option>
+              <option value="medium" selected>⚖️ Média</option>
+              <option value="high">⚡ Alta</option>
+            </select>
           </div>
         </div>
 
-        <!-- Sensibilidade do Sensor de Movimento -->
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label for="nightSensitivitySelect" style="font-size: 12px; font-weight: 700; color: var(--accent-cyan);">
-            🎯 Sensibilidade do Movimento
-          </label>
-          <select id="nightSensitivitySelect" class="form-input" style="font-weight: 600; cursor: pointer;">
-            <option value="low">🛡️ Baixa (Apenas Pessoas e Carros - Menos Alertas Falsos)</option>
-            <option value="medium" selected>⚖️ Média (Recomendado - Equilibrado)</option>
-            <option value="high">⚡ Alta (Máxima Sensibilidade)</option>
-          </select>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-            Defina "Baixa" se ventos ou galhos estiverem ativando a tela à noite.
+        <!-- 2. Tempo de Tela Acesa (Pills Interativos) -->
+        <div>
+          <label class="vigia-field-label">⏱️ Manter Tela Acesa</label>
+          <div class="vigia-duration-row">
+            <div class="vigia-duration-pill" data-val="15" onclick="selectDurationPill('15')">15s</div>
+            <div class="vigia-duration-pill active" data-val="30" onclick="selectDurationPill('30')">30s ★</div>
+            <div class="vigia-duration-pill" data-val="60" onclick="selectDurationPill('60')">1 min</div>
+            <div class="vigia-duration-pill" data-val="120" onclick="selectDurationPill('120')">2 min</div>
           </div>
-        </div>
-
-        <!-- Tempo de Tela Acesa -->
-        <div class="form-group" style="margin-bottom: 14px;">
-          <label for="nightDurationSelect" style="font-size: 12px; font-weight: 700; color: var(--text-main);">
-            ⏱️ Manter Tela Acesa Após Movimento
-          </label>
-          <select id="nightDurationSelect" class="form-input" style="cursor: pointer;">
-            <option value="15">15 Segundos</option>
-            <option value="30" selected>30 Segundos (Recomendado)</option>
-            <option value="60">1 Minuto</option>
-            <option value="120">2 Minutos</option>
+          <!-- Select oculto para compatibilidade total com JS existente -->
+          <select id="nightDurationSelect" style="display: none;">
+            <option value="15">15</option>
+            <option value="30" selected>30</option>
+            <option value="60">60</option>
+            <option value="120">120</option>
           </select>
         </div>
 
-        <!-- Alerta Sonoro -->
-        <div class="form-group" style="margin-bottom: 18px;">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="nightSoundEnabled" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">
-              🔔 Tocar aviso sonoro suave (Chime) ao detectar
-            </span>
-          </label>
-          <div style="font-size: 11px; color: var(--text-muted); margin-left: 28px; margin-top: 2px;">
-            Toca um som sutil para chamar sua atenção no quarto.
+        <!-- 3. Grupo de Ações ao Detectar Movimento (Switches Estilizados) -->
+        <div>
+          <label class="vigia-field-label">⚡ Ações ao Detectar Movimento</label>
+          <div class="vigia-actions-group">
+            
+            <!-- Som Chime -->
+            <label class="vigia-toggle-item" for="nightSoundEnabled">
+              <div class="vigia-toggle-info">
+                <span class="vigia-toggle-icon">🔔</span>
+                <div class="vigia-toggle-text">
+                  <span class="vigia-toggle-title">Aviso Sonoro</span>
+                  <span class="vigia-toggle-desc">Chime suave ao detectar presença</span>
+                </div>
+              </div>
+              <div class="switch-toggle">
+                <input type="checkbox" id="nightSoundEnabled" checked>
+                <span class="switch-slider"></span>
+              </div>
+            </label>
+
+            <!-- Gravação MP4 -->
+            <label class="vigia-toggle-item" for="nightRecordEnabled">
+              <div class="vigia-toggle-info">
+                <span class="vigia-toggle-icon">🎬</span>
+                <div class="vigia-toggle-text">
+                  <span class="vigia-toggle-title">Gravação Automática</span>
+                  <span class="vigia-toggle-desc">Salva clipe de 15s no histórico (.mp4)</span>
+                </div>
+              </div>
+              <div class="switch-toggle">
+                <input type="checkbox" id="nightRecordEnabled" checked>
+                <span class="switch-slider"></span>
+              </div>
+            </label>
+
+            <!-- Notificação Toast Windows -->
+            <label class="vigia-toggle-item" for="nightToastEnabled">
+              <div class="vigia-toggle-info">
+                <span class="vigia-toggle-icon">🖥️</span>
+                <div class="vigia-toggle-text">
+                  <span class="vigia-toggle-title">Notificação Windows</span>
+                  <span class="vigia-toggle-desc">Banner na Área de Trabalho com foto</span>
+                </div>
+              </div>
+              <div class="switch-toggle">
+                <input type="checkbox" id="nightToastEnabled" checked>
+                <span class="switch-slider"></span>
+              </div>
+            </label>
+
           </div>
         </div>
 
-        <!-- Gravação Automática em .MP4 durante a Vigia (Opcional) -->
-        <div class="form-group" style="margin-bottom: 18px;">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="nightRecordEnabled" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">
-              🎬 Gravar clipe de 15s (.MP4) no histórico ao detectar
-            </span>
-          </label>
-          <div style="font-size: 11px; color: var(--text-muted); margin-left: 28px; margin-top: 2px;">
-            Gera gravação com foto do momento no histórico de Eventos. Desmarque para apenas vigiar sem gravar.
-          </div>
-        </div>
-
-        <!-- Notificações Toast do Windows (Fase 4) -->
-        <div class="form-group" style="margin-bottom: 18px;">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="nightToastEnabled" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer;">
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">
-              🖥️ Notificação na Área de Trabalho (Windows Toast) com foto
-            </span>
-          </label>
-          <div style="font-size: 11px; color: var(--text-muted); margin-left: 28px; margin-top: 2px;">
-            Exibe alerta nativo do Windows com foto ao detectar movimento quando o Vision estiver minimizado.
-          </div>
-        </div>
-
-        <!-- Botões de Ação -->
-        <div style="display: flex; gap: 8px; margin-top: 20px;">
-          <button type="button" class="btn-secondary" onclick="closeNightModeModal()" style="flex: 1;">
+        <!-- 4. Botões de Ação -->
+        <div class="vigia-footer">
+          <button type="button" class="vigia-btn-cancel" onclick="closeNightModeModal()">
             Cancelar
           </button>
-          <button type="button" class="btn-primary" onclick="startNightModeFromModal()" style="flex: 2; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-color: #60a5fa;">
-            🌙 Iniciar Vigia Agora
+          <button type="button" class="vigia-btn-start" onclick="startNightModeFromModal()">
+            <span>🌙</span> Iniciar Modo Vigia
           </button>
         </div>
+
       </div>
     </div>
   </div>
@@ -632,7 +641,7 @@
     </div>
   </div>
 
-  <script type="module" src="/static/js/porteiro-stream.js?v=6.0"></script>
-  <script src="/static/js/app.js?v=6.0"></script>
+  <script type="module" src="/static/js/porteiro-stream.js?v=6.5"></script>
+  <script src="/static/js/app.js?v=6.5"></script>
 </body>
 </html>
