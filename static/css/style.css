@@ -381,6 +381,19 @@ body:fullscreen {
   box-shadow: 0 0 14px rgba(52, 211, 153, 0.45);
 }
 
+/* 8. BAIXAR APP TABLET / ANDROID (.APK) (Destaque Verde Esmeralda) */
+.header-action-btn.tool-apk {
+  border-color: rgba(0, 230, 118, 0.4);
+  background: rgba(0, 230, 118, 0.12);
+  color: #00e676;
+  text-decoration: none;
+}
+.header-action-btn.tool-apk:hover {
+  background: rgba(0, 230, 118, 0.25);
+  border-color: #00e676;
+  box-shadow: 0 0 14px rgba(0, 230, 118, 0.5);
+}
+
 /* BOTÃO PRIMÁRIO ADICIONAR CÂMERA (+) */
 .btn-primary-add {
   width: 36px;
