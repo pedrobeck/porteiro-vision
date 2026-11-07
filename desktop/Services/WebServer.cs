@@ -142,38 +142,28 @@ public class WebServer : IDisposable
         // 3. Download APK (Suporta GET e HEAD para DownloadManager nativo do Android)
         var apkMethods = new[] { "GET", "HEAD" };
         app.MapMethods("/download/Vision.apk", apkMethods, ServeApk);
-        app.MapMethods("/download/Vision.apk", apkMethods, ServeApk);
+        app.MapMethods("/download/PorteiroVision.apk", apkMethods, ServeApk);
         app.MapMethods("/download/apk", apkMethods, ServeApk);
 
-        async Task ServeApk(HttpContext ctx)
+        IResult ServeApk(HttpContext ctx)
         {
             string apkPath = Path.Combine(_staticDir, "Vision.apk");
             if (!File.Exists(apkPath))
             {
-                apkPath = Path.Combine(_staticDir, "Vision.apk");
+                apkPath = Path.Combine(_staticDir, "PorteiroVision.apk");
             }
             if (File.Exists(apkPath))
             {
-                var fi = new FileInfo(apkPath);
-                ctx.Response.StatusCode = 200;
-                ctx.Response.ContentType = "application/vnd.android.package-archive";
-                ctx.Response.ContentLength = fi.Length;
-                ctx.Response.Headers["Content-Disposition"] = "attachment; filename=\"Vision.apk\"";
-                ctx.Response.Headers["Accept-Ranges"] = "bytes";
                 ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
                 ctx.Response.Headers["Cache-Control"] = "public, max-age=3600";
-
-                if (HttpMethods.IsHead(ctx.Request.Method))
-                {
-                    return;
-                }
-
-                await ctx.Response.SendFileAsync(apkPath);
+                return Results.File(
+                    apkPath,
+                    contentType: "application/vnd.android.package-archive",
+                    fileDownloadName: "Vision.apk",
+                    enableRangeProcessing: true
+                );
             }
-            else
-            {
-                ctx.Response.Redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk");
-            }
+            return Results.Redirect("https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk");
         }
 
         // 4. Arquivos estáticos (/static/...)
