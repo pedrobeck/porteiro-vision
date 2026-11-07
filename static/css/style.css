@@ -599,8 +599,16 @@ body:fullscreen {
   text-align: left;
   transition: all 0.18s ease;
   user-select: none;
+  -webkit-user-select: none;
   touch-action: manipulation;
   width: 100%;
+  text-decoration: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-menu-item,
+.drawer-menu-item * {
+  text-decoration: none !important;
 }
 
 .drawer-menu-item:hover,

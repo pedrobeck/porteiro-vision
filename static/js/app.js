@@ -2012,6 +2012,28 @@ window.toggleMobileMenu = toggleMobileMenu;
 window.closeMobileMenu = closeMobileMenu;
 window.updateThemeDrawerLabel = updateThemeDrawerLabel;
 
+function downloadApk() {
+  if (typeof showToast === "function") {
+    showToast("Iniciando download do Vision.apk...", "info");
+  }
+  
+  const a = document.createElement("a");
+  a.href = "/download/Vision.apk";
+  a.setAttribute("download", "Vision.apk");
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => {
+    window.location.assign("/download/Vision.apk");
+  }, 250);
+
+  if (typeof closeMobileMenu === "function") {
+    closeMobileMenu();
+  }
+}
+window.downloadApk = downloadApk;
+
 // Alterna entre Ajustar na Tela (contain) e Preencher 100% da Tela sem bordas (cover)
 function toggleCameraFill(camId, event) {
   if (event) event.stopPropagation();
