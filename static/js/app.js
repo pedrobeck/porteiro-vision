@@ -138,21 +138,33 @@ function initLayoutControls() {
   const buttons = document.querySelectorAll(".layout-btn");
   buttons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      buttons.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
       const layout = btn.dataset.layout;
-      setLayout(layout);
+      if (layout) setLayout(layout);
     });
   });
+
+  // Restaura layout salvo nas preferências do usuário
+  try {
+    const saved = localStorage.getItem("vision_layout") || "auto";
+    setLayout(saved);
+  } catch (e) {}
 }
 
 function setLayout(layout) {
   currentLayout = layout;
+  try {
+    localStorage.setItem("vision_layout", layout);
+  } catch (e) {}
+
   const grid = document.getElementById("cameraGrid");
-  grid.className = `camera-grid layout-${layout}`;
+  if (grid) grid.className = `camera-grid layout-${layout}`;
   unfocusCamera();
 
-  // Mantém os fluxos ativos sem recarregar ou travar telas ao mudar de layout
+  // Sincroniza estado ativo em todos os segmented controls (desktop e drawer mobile)
+  const buttons = document.querySelectorAll(".layout-btn");
+  buttons.forEach((b) => {
+    b.classList.toggle("active", b.dataset.layout === layout);
+  });
 }
 
 // --- CARREGAMENTO E RENDERIZAÇÃO DAS CÂMERAS ---
