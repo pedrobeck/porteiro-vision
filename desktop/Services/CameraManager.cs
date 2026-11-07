@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PorteiroVision.Models;
+using Vision.Models;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class CameraManager : IDisposable
 {

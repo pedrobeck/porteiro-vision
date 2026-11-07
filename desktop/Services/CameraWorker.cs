@@ -3,11 +3,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using OpenCvSharp;
-using PorteiroVision.Models;
+using Vision.Models;
 using Size = OpenCvSharp.Size;
 using Point = OpenCvSharp.Point;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class CameraWorker : IDisposable
 {

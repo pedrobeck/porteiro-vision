@@ -9,11 +9,11 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using PorteiroVision.Models;
-using PorteiroVision.Services;
+using Vision.Models;
+using Vision.Services;
 using Forms = System.Windows.Forms;
 
-namespace PorteiroVision;
+namespace Vision;
 
 public partial class MainWindow : Window
 {

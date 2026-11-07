@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Windows;
 
-namespace PorteiroVision;
+namespace Vision;
 
 public partial class App : System.Windows.Application
 {

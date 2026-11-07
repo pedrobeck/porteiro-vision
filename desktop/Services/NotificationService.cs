@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Toolkit.Uwp.Notifications;
-using PorteiroVision.Models;
+using Vision.Models;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class NotificationService
 {

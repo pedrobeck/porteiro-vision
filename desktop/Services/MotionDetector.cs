@@ -5,7 +5,7 @@ using Size = OpenCvSharp.Size;
 using Point = OpenCvSharp.Point;
 using Rect = OpenCvSharp.Rect;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class MotionProfile
 {

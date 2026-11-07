@@ -1,4 +1,4 @@
-package com.pedrobeck.porteirovision;
+package com.pedrobeck.vision;
 
 import android.app.AlertDialog;
 import android.content.Context;

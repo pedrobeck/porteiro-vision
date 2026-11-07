@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace PorteiroVision.Models;
+namespace Vision.Models;
 
 public class CameraInfo
 {

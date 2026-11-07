@@ -1,4 +1,4 @@
-package com.pedrobeck.porteirovision;
+package com.pedrobeck.vision;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

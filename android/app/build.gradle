@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.pedrobeck.porteirovision"
+    namespace = "com.pedrobeck.vision"
     compileSdk = 34
 
     defaultConfig {

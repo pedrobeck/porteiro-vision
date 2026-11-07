@@ -4,9 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using PorteiroVision.Models;
+using Vision.Models;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class Go2RtcService
 {

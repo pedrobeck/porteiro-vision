@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
-using PorteiroVision.Models;
+using Vision.Models;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class StorageService
 {
@@ -47,7 +47,7 @@ public class StorageService
         if (Directory.Exists(Path.Combine(parent, "static")) && Directory.Exists(Path.Combine(parent, "templates")))
             return parent;
 
-        string projDir = @"D:\Projetos\PorteiroCam";
+        string projDir = @"D:\Projetos\Vision";
         if (Directory.Exists(Path.Combine(projDir, "static")))
             return projDir;
 

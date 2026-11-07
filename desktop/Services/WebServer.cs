@@ -16,9 +16,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
-using PorteiroVision.Models;
+using Vision.Models;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class WebServer : IDisposable
 {
@@ -142,7 +142,7 @@ public class WebServer : IDisposable
         // 3. Download APK (Suporta GET e HEAD para DownloadManager nativo do Android)
         var apkMethods = new[] { "GET", "HEAD" };
         app.MapMethods("/download/Vision.apk", apkMethods, ServeApk);
-        app.MapMethods("/download/PorteiroVision.apk", apkMethods, ServeApk);
+        app.MapMethods("/download/Vision.apk", apkMethods, ServeApk);
         app.MapMethods("/download/apk", apkMethods, ServeApk);
 
         async Task ServeApk(HttpContext ctx)
@@ -150,7 +150,7 @@ public class WebServer : IDisposable
             string apkPath = Path.Combine(_staticDir, "Vision.apk");
             if (!File.Exists(apkPath))
             {
-                apkPath = Path.Combine(_staticDir, "PorteiroVision.apk");
+                apkPath = Path.Combine(_staticDir, "Vision.apk");
             }
             if (File.Exists(apkPath))
             {

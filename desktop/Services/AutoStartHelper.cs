@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using Microsoft.Win32;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public static class AutoStartHelper
 {
@@ -14,7 +14,7 @@ public static class AutoStartHelper
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunRegistryKey, false);
-            return key?.GetValue(AppName) != null || key?.GetValue("PorteiroVisionHub") != null;
+            return key?.GetValue(AppName) != null || key?.GetValue("VisionHub") != null;
         }
         catch
         {
@@ -30,7 +30,7 @@ public static class AutoStartHelper
             if (key == null) return false;
 
             // Remove legacy key if present
-            try { key.DeleteValue("PorteiroVisionHub", false); } catch { }
+            try { key.DeleteValue("VisionHub", false); } catch { }
 
             if (enable)
             {

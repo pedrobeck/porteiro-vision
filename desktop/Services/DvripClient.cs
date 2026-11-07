@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace PorteiroVision.Services;
+namespace Vision.Services;
 
 public class DvripClient : IDisposable
 {
