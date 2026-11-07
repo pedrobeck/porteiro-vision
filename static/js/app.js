@@ -1920,9 +1920,13 @@ function applyTheme(themeId) {
   if (document.body) document.body.setAttribute("data-theme", themeId);
   localStorage.setItem("vision_theme", themeId);
   const label = document.getElementById("themePickerLabel");
+  const drawerTheme = document.getElementById("drawerThemeLabel");
   const found = THEMES.find(t => t.id === themeId);
   if (label && found) {
     label.textContent = found.label;
+  }
+  if (drawerTheme && found) {
+    drawerTheme.textContent = `Ativo: ${found.label.replace('Fundo: ', '')}`;
   }
 }
 
@@ -1938,6 +1942,41 @@ function cycleTheme() {
 }
 window.cycleTheme = cycleTheme;
 window.applyTheme = applyTheme;
+
+// --- MENU SANDUÍCHE (MODO EM PÉ / RETRATO) ---
+function toggleMobileMenu() {
+  const drawer = document.getElementById("mobileDrawer");
+  const backdrop = document.getElementById("mobileDrawerBackdrop");
+  if (!drawer) return;
+  const isOpen = drawer.classList.contains("open");
+  if (isOpen) {
+    closeMobileMenu();
+  } else {
+    drawer.classList.add("open");
+    if (backdrop) backdrop.classList.add("open");
+    updateThemeDrawerLabel();
+  }
+}
+
+function closeMobileMenu() {
+  const drawer = document.getElementById("mobileDrawer");
+  const backdrop = document.getElementById("mobileDrawerBackdrop");
+  if (drawer) drawer.classList.remove("open");
+  if (backdrop) backdrop.classList.remove("open");
+}
+
+function updateThemeDrawerLabel() {
+  const current = localStorage.getItem("vision_theme") || "vision";
+  const found = THEMES.find(t => t.id === current);
+  const drawerTheme = document.getElementById("drawerThemeLabel");
+  if (drawerTheme && found) {
+    drawerTheme.textContent = `Ativo: ${found.label.replace('Fundo: ', '')}`;
+  }
+}
+
+window.toggleMobileMenu = toggleMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
+window.updateThemeDrawerLabel = updateThemeDrawerLabel;
 
 // Alterna entre Ajustar na Tela (contain) e Preencher 100% da Tela sem bordas (cover)
 function toggleCameraFill(camId, event) {
@@ -2021,16 +2060,18 @@ async function loadEventsList() {
       badge.textContent = `${count} gravação(ões) • ${sizeStr}`;
     }
 
-    // Badge no botão superior
-    const topBadge = document.getElementById("eventsCountBadge");
-    if (topBadge) {
-      if (count > 0) {
-        topBadge.style.display = "inline-block";
-        topBadge.textContent = count > 99 ? "99+" : count;
-      } else {
-        topBadge.style.display = "none";
+    // Badge no botão superior e no menu sanduíche
+    ["eventsCountBadge", "mobileEventsBadge", "drawerEventsBadge"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (count > 0) {
+          el.style.display = "inline-block";
+          el.textContent = count > 99 ? "99+" : count;
+        } else {
+          el.style.display = "none";
+        }
       }
-    }
+    });
 
     if (count === 0) {
       if (empty) empty.style.display = "block";
