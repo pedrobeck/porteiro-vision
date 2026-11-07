@@ -1,4 +1,4 @@
-const CACHE_NAME = "vision-v4.0";
+const CACHE_NAME = "vision-v5.0";
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

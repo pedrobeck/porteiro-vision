@@ -378,11 +378,11 @@ function renderGrid() {
             ${isSubLens ? `<span class="badge-sublens">FIXA</span>` : ''}
           </div>
         </div>
-        <div class="cell-actions">
+        <div class="cell-actions" style="display: inline-flex !important; align-items: center !important; gap: 14px !important;">
           ${multiLensBtn}
-          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
-          <button class="action-icon-btn btn-focus-toggle" title="Maximizar / Foco" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
-          ${!isSubLens ? `<button class="action-icon-btn btn-settings" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
+          <button class="btn-quality" id="btn-quality-${cam.id}" style="min-width: 48px !important; height: 38px !important; font-size: 11.5px !important; margin: 0 !important;" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
+          <button class="action-icon-btn btn-focus-toggle" style="width: 38px !important; height: 38px !important; font-size: 16px !important; margin: 0 !important;" title="Maximizar / Foco" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
+          ${!isSubLens ? `<button class="action-icon-btn btn-settings" style="width: 38px !important; height: 38px !important; font-size: 16px !important; margin: 0 !important;" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
       ${feedHtml}

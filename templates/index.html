@@ -10,7 +10,66 @@
   <title>Vision</title>
   
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/css/style.css?v=7.9">
+  <link rel="stylesheet" href="/static/css/style.css?v=8.0">
+  <style>
+    /* GARANTIA TOUCH: Espaçamento amplo e hitboxes generosas sem depender de cache */
+    .cell-actions {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      z-index: 10 !important;
+    }
+    .cell-actions button {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+    .btn-quality {
+      min-width: 48px !important;
+      height: 38px !important;
+      font-size: 11.5px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.6px !important;
+      padding: 0 12px !important;
+      border-radius: 9px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: #d4a373 !important;
+      background: rgba(217, 155, 102, 0.12) !important;
+      border: 1px solid rgba(217, 155, 102, 0.35) !important;
+      box-shadow: none !important;
+    }
+    .btn-quality.active-hd {
+      color: #62c396 !important;
+      background: rgba(82, 183, 136, 0.14) !important;
+      border-color: rgba(82, 183, 136, 0.38) !important;
+      box-shadow: none !important;
+    }
+    .action-icon-btn.btn-focus-toggle,
+    .action-icon-btn.btn-settings {
+      width: 38px !important;
+      height: 38px !important;
+      border-radius: 9px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 16px !important;
+      background: rgba(13, 22, 39, 0.85) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    }
+    .header-mobile-bar {
+      gap: 12px !important;
+    }
+    .hamburger-btn,
+    .header-action-btn {
+      width: 38px !important;
+      height: 38px !important;
+    }
+  </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">

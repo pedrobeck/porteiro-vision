@@ -108,6 +108,10 @@ public class WebServer : IDisposable
             string html = await File.ReadAllTextAsync(indexPath);
             html = html.Replace("{{ server_ip }}", LocalIp);
 
+            ctx.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            ctx.Response.Headers["Pragma"] = "no-cache";
+            ctx.Response.Headers["Expires"] = "0";
+
             ctx.Response.ContentType = "text/html; charset=utf-8";
             await ctx.Response.WriteAsync(html);
         });
@@ -199,6 +203,13 @@ public class WebServer : IDisposable
             var fi = new FileInfo(fullPath);
             ctx.Response.ContentLength = fi.Length;
             ctx.Response.Headers["Accept-Ranges"] = "bytes";
+
+            if (ext == ".css" || ext == ".js" || ext == ".html")
+            {
+                ctx.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+                ctx.Response.Headers["Pragma"] = "no-cache";
+                ctx.Response.Headers["Expires"] = "0";
+            }
 
             if (ext == ".apk")
             {
