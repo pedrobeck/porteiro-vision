@@ -2387,16 +2387,16 @@ video::-webkit-media-controls-overlay-enclosure,
   transform: scale(0.96);
 }
 
-/* BOTAO DE QUALIDADE SD/HD (Laranja fraco em SD e Verde em HD) */
+/* BOTAO DE QUALIDADE SD/HD (Cores discretas e elegantes para sutil diferenciação) */
 .btn-quality {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 7px;
   border-radius: 6px;
-  border: 1px solid rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24; /* Laranja fraco / suave para SD */
+  border: 1px solid rgba(217, 155, 102, 0.28);
+  background: rgba(217, 155, 102, 0.08);
+  color: #d4a373; /* Laranja discreto / suave e elegante */
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
@@ -2405,27 +2405,26 @@ video::-webkit-media-controls-overlay-enclosure,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
+  box-shadow: none;
 }
 
 .btn-quality:hover {
-  background: rgba(245, 158, 11, 0.22);
-  border-color: #f59e0b;
-  color: #fde68a;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
+  background: rgba(217, 155, 102, 0.16);
+  border-color: rgba(217, 155, 102, 0.45);
+  color: #e2ba93;
 }
 
 .btn-quality.active-hd {
-  background: rgba(0, 230, 118, 0.18) !important;
-  color: #00e676 !important; /* Verde quando HD */
-  border-color: rgba(0, 230, 118, 0.65) !important;
-  box-shadow: 0 0 12px rgba(0, 230, 118, 0.45) !important;
+  background: rgba(82, 183, 136, 0.1) !important;
+  color: #62c396 !important; /* Verde suave e discreto */
+  border-color: rgba(82, 183, 136, 0.32) !important;
+  box-shadow: none !important;
 }
 
 .btn-quality.active-hd:hover {
-  background: rgba(0, 230, 118, 0.3) !important;
-  border-color: #00e676 !important;
-  box-shadow: 0 0 16px rgba(0, 230, 118, 0.65) !important;
+  background: rgba(82, 183, 136, 0.18) !important;
+  border-color: rgba(82, 183, 136, 0.5) !important;
+  color: #7ed4ac !important;
 }
 
 
