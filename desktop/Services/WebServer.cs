@@ -171,7 +171,7 @@ public class WebServer : IDisposable
         }
 
         // 4. Arquivos estáticos (/static/...)
-        app.MapGet("/static/{**filePath}", async (HttpContext ctx, string filePath) =>
+        app.MapMethods("/static/{**filePath}", new[] { "GET", "HEAD" }, async (HttpContext ctx, string filePath) =>
         {
             string fullPath = Path.Combine(_staticDir, filePath);
             if (!File.Exists(fullPath))
@@ -195,6 +195,20 @@ public class WebServer : IDisposable
                 ".apk" => "application/vnd.android.package-archive",
                 _ => "application/octet-stream"
             };
+
+            var fi = new FileInfo(fullPath);
+            ctx.Response.ContentLength = fi.Length;
+            ctx.Response.Headers["Accept-Ranges"] = "bytes";
+
+            if (ext == ".apk")
+            {
+                ctx.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{Path.GetFileName(fullPath)}\"";
+            }
+
+            if (HttpMethods.IsHead(ctx.Request.Method))
+            {
+                return;
+            }
 
             ctx.Response.Headers["Cache-Control"] = "no-cache, must-revalidate";
             await ctx.Response.SendFileAsync(fullPath);

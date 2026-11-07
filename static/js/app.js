@@ -2012,6 +2012,21 @@ window.toggleMobileMenu = toggleMobileMenu;
 window.closeMobileMenu = closeMobileMenu;
 window.updateThemeDrawerLabel = updateThemeDrawerLabel;
 
+function openApkModal() {
+  const modal = document.getElementById("apkDownloadModal");
+  if (modal) modal.style.display = "flex";
+  if (typeof closeMobileMenu === "function") {
+    closeMobileMenu();
+  }
+}
+
+function closeApkModal() {
+  const modal = document.getElementById("apkDownloadModal");
+  if (modal) modal.style.display = "none";
+}
+window.openApkModal = openApkModal;
+window.closeApkModal = closeApkModal;
+
 function downloadApk() {
   if (typeof showToast === "function") {
     showToast("Iniciando download do Vision.apk...", "info");
