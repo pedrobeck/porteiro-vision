@@ -39,19 +39,19 @@ public class StorageService
 
     public static string ResolveBaseDir()
     {
-        string candidate = AppContext.BaseDirectory;
-        if (Directory.Exists(Path.Combine(candidate, "static")) && Directory.Exists(Path.Combine(candidate, "templates")))
-            return candidate;
+        string projDir = @"D:\Projetos\Vision";
+        if (Directory.Exists(projDir) && Directory.Exists(Path.Combine(projDir, "static")) && Directory.Exists(Path.Combine(projDir, "templates")))
+            return projDir;
 
+        string candidate = AppContext.BaseDirectory;
         string parent = Path.GetFullPath(Path.Combine(candidate, ".."));
         if (Directory.Exists(Path.Combine(parent, "static")) && Directory.Exists(Path.Combine(parent, "templates")))
             return parent;
 
-        string projDir = @"D:\Projetos\Vision";
-        if (Directory.Exists(Path.Combine(projDir, "static")))
-            return projDir;
+        if (Directory.Exists(Path.Combine(candidate, "static")) && Directory.Exists(Path.Combine(candidate, "templates")))
+            return candidate;
 
-        return candidate;
+        return projDir;
     }
 
     private void EnsureDir()
