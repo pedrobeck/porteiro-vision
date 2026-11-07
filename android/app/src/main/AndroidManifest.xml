@@ -19,6 +19,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:label="Vision"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
             android:windowSoftInputMode="adjustResize"
