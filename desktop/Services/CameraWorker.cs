@@ -172,11 +172,11 @@ public class CameraWorker : IDisposable
                                 _bestSnapshot = currentSnap;
                             }
 
-                            Console.WriteLine($"[CameraWorker] Movimento detectado em {Name}. Acumulando quadros por 1.2s para capturar a pessoa centralizada...");
+                            Console.WriteLine($"[CameraWorker] Movimento detectado em {Name}. Acumulando quadros por 2.2s para capturar a pessoa centralizada...");
 
                             Task.Run(async () =>
                             {
-                                await Task.Delay(1200);
+                                await Task.Delay(2200);
 
                                 byte[]? snapToSend;
                                 lock (_snapshotLock)
