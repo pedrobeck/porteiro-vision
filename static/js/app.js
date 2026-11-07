@@ -368,7 +368,8 @@ function renderGrid() {
         </div>
         <div class="cell-actions">
           ${multiLensBtn}
-          <button class="cell-lupa-btn" title="Ampliar Câmera (Foco)" onclick="toggleFocusCamera('${cam.id}', event)">🔍</button>
+          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
+          <button class="action-icon-btn btn-focus-toggle" title="Maximizar / Foco" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
           ${!isSubLens ? `<button class="action-icon-btn btn-settings" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
@@ -488,8 +489,12 @@ function toggleFocusCamera(camId, event) {
     cell.classList.add("focused");
     focusedCameraId = camId;
 
-    // EXPANSÃO 100% INSTANTÂNEA: Mantém o fluxo atual rodando liso sem tela preta nem atraso!
-    // O usuário pode tocar no botão "SD/HD" no cabeçalho se desejar 1080p nítido sob demanda.
+    const btnFocus = cell.querySelector(".btn-focus-toggle");
+    if (btnFocus) {
+      btnFocus.textContent = "✕";
+      btnFocus.title = "Restaurar Visualização";
+      btnFocus.classList.add("active-focused");
+    }
 
     const ptz = document.getElementById(`ptz-${camId}`);
     if (ptz) ptz.style.display = "grid";
@@ -502,7 +507,12 @@ function unfocusCamera() {
     const old = document.querySelector(`.camera-cell[data-id="${prevId}"]`);
     if (old) {
       old.classList.remove("focused");
-      old.classList.remove("show-lupa");
+      const btnFocus = old.querySelector(".btn-focus-toggle");
+      if (btnFocus) {
+        btnFocus.textContent = "⛶";
+        btnFocus.title = "Maximizar / Foco";
+        btnFocus.classList.remove("active-focused");
+      }
       const ptz = document.getElementById(`ptz-${prevId}`);
       if (ptz) ptz.style.display = "none";
     }
@@ -546,13 +556,32 @@ function isFullscreen() {
   );
 }
 
+function updateFullscreenLabels() {
+  const isFull = isFullscreen();
+  const drawerTitle = document.getElementById("drawerFullscreenTitle");
+  const drawerSub = document.getElementById("drawerFullscreenSub");
+  if (drawerTitle) {
+    drawerTitle.textContent = isFull ? "Sair da Tela Cheia" : "Tela Cheia";
+  }
+  if (drawerSub) {
+    drawerSub.textContent = isFull ? "Voltar ao modo padrão do celular" : "Expandir e ocultar barras do navegador";
+  }
+}
+document.addEventListener("fullscreenchange", updateFullscreenLabels);
+document.addEventListener("webkitfullscreenchange", updateFullscreenLabels);
+
 async function toggleFullscreen(event) {
   if (event && event.stopPropagation) event.stopPropagation();
   try {
     if (!isFullscreen()) {
       const el = document.documentElement;
+      const opts = { navigationUI: "hide" };
       if (el.requestFullscreen) {
-        await el.requestFullscreen();
+        try {
+          await el.requestFullscreen(opts);
+        } catch {
+          await el.requestFullscreen();
+        }
       } else if (el.webkitRequestFullscreen) {
         await el.webkitRequestFullscreen();
       } else if (el.webkitRequestFullScreen) {
@@ -576,6 +605,7 @@ async function toggleFullscreen(event) {
   } catch (err) {
     console.warn("[Fullscreen] Falha ao alternar tela cheia:", err);
   }
+  updateFullscreenLabels();
 }
 window.toggleFullscreen = toggleFullscreen;
 
@@ -1440,12 +1470,14 @@ async function startNightModeFromModal() {
 async function enterNightMode() {
   const overlay = document.getElementById("nightOverlay");
   const btn = document.getElementById("nightModeBtn");
+  const mobileBtn = document.getElementById("mobileNightModeBtn");
   if (!overlay) return;
 
   isNightModeActive = true;
   isNightAwake = false;
 
   if (btn) btn.classList.add("active");
+  if (mobileBtn) mobileBtn.classList.add("active");
   overlay.style.display = "flex";
 
   // Atualiza etiqueta da câmera monitorada com a sensibilidade ativa
@@ -1522,11 +1554,13 @@ async function enterNightMode() {
 function exitNightMode() {
   const overlay = document.getElementById("nightOverlay");
   const btn = document.getElementById("nightModeBtn");
+  const mobileBtn = document.getElementById("mobileNightModeBtn");
 
   isNightModeActive = false;
   isNightAwake = false;
 
   if (btn) btn.classList.remove("active");
+  if (mobileBtn) mobileBtn.classList.remove("active");
   if (overlay) overlay.style.display = "none";
 
   // Limpa timers
