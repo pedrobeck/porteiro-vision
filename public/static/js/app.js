@@ -1,4 +1,4 @@
-// PORTEIRO VISION - DASHBOARD CONTROLLER
+// VISION - DASHBOARD CONTROLLER
 
 window.cameras = [];
 let currentLayout = "auto";
@@ -8,6 +8,7 @@ let currentAuthMode = "login"; // 'login' ou 'register'
 let isHubOnline = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initTheme();
   initLayoutControls();
   initModal();
   
@@ -19,26 +20,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   registerPWA();
 });
 
-// --- PWA SERVICE WORKER ---
+// --- PWA SERVICE WORKER (DESATIVADO PARA PURGA TOTAL DE CACHE) ---
 function registerPWA() {
   if ("serviceWorker" in navigator) {
-    if (isLocalEnvironment()) {
-      // No ambiente local de casa (PC/Tablet), desregistra Service Worker para eliminar cache e lentidão
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const reg of registrations) {
-          reg.unregister();
-        }
-      });
-      if ("caches" in window) {
-        caches.keys().then((keys) => {
-          keys.forEach((k) => caches.delete(k));
-        });
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        reg.unregister();
       }
-    } else {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    });
+  }
+  if ("caches" in window) {
+    caches.keys().then((keys) => {
+      keys.forEach((k) => caches.delete(k));
+    });
   }
 }
+
+// --- FUNÇÃO ROBUSTA DE DOWNLOAD DO APK ---
+function triggerApkDownload(source) {
+  const url = (source === 'github')
+    ? 'https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk'
+    : '/download/Vision.apk?t=' + Date.now();
+  
+  window.location.href = url;
+}
+window.triggerApkDownload = triggerApkDownload;
 
 // --- STREAM HUB URL & CLOUDFLARE TUNNEL (MODO HÍBRIDO AUTOMÁTICO) ---
 function isLocalEnvironment() {
@@ -137,19 +143,33 @@ function initLayoutControls() {
   const buttons = document.querySelectorAll(".layout-btn");
   buttons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      buttons.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
       const layout = btn.dataset.layout;
-      setLayout(layout);
+      if (layout) setLayout(layout);
     });
   });
+
+  // Restaura layout salvo nas preferências do usuário
+  try {
+    const saved = localStorage.getItem("vision_layout") || "auto";
+    setLayout(saved);
+  } catch (e) {}
 }
 
 function setLayout(layout) {
   currentLayout = layout;
+  try {
+    localStorage.setItem("vision_layout", layout);
+  } catch (e) {}
+
   const grid = document.getElementById("cameraGrid");
-  grid.className = `camera-grid layout-${layout}`;
+  if (grid) grid.className = `camera-grid layout-${layout}`;
   unfocusCamera();
+
+  // Sincroniza estado ativo em todos os segmented controls (desktop e drawer mobile)
+  const buttons = document.querySelectorAll(".layout-btn");
+  buttons.forEach((b) => {
+    b.classList.toggle("active", b.dataset.layout === layout);
+  });
 }
 
 // --- CARREGAMENTO E RENDERIZAÇÃO DAS CÂMERAS ---
@@ -184,14 +204,11 @@ function updateExistingGridLabels(cameras) {
       const nameEl = cell.querySelector(".camera-name");
       if (nameEl) {
         const isSubLens = !!cam.is_sub_lens;
-        nameEl.innerHTML = `
-          ${escapeHtml(cam.name)}
-          ${isSubLens ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); margin-left: 6px; font-weight: 700; vertical-align: middle;">FIXA</span>` : ''}
-        `;
+        nameEl.innerHTML = `${escapeHtml(cam.name)}${isSubLens ? `<span class="badge-sublens">FIXA</span>` : ''}`;
       }
-      const metaEl = cell.querySelector(".camera-meta");
-      if (metaEl) {
-        metaEl.textContent = `${cam.status || "CONECTANDO"} | ${cam.fps || 0} FPS`;
+      const indicator = cell.querySelector(".status-indicator");
+      if (indicator && cam.status) {
+        indicator.className = `status-indicator ${cam.status.toLowerCase()}`;
       }
     }
   });
@@ -265,12 +282,21 @@ function updateCameraStatuses(statuses) {
     const cell = document.querySelector(`.camera-cell[data-id="${st.id}"]`);
     if (cell) {
       const indicator = cell.querySelector(".status-indicator");
-      const meta = cell.querySelector(".camera-meta");
       if (indicator) {
         indicator.className = `status-indicator ${st.status.toLowerCase()}`;
       }
-      if (meta) {
-        meta.textContent = `${st.status} | ${st.fps || 0} FPS`;
+
+      // Indicador REC de gravação ativa na câmera (Fase 3)
+      let recBadge = cell.querySelector(".cam-rec-badge");
+      if (st.recording) {
+        if (!recBadge) {
+          recBadge = document.createElement("div");
+          recBadge.className = "cam-rec-badge";
+          recBadge.innerHTML = '<span class="cam-rec-dot"></span> REC';
+          cell.appendChild(recBadge);
+        }
+      } else if (recBadge) {
+        recBadge.remove();
       }
     }
   });
@@ -307,6 +333,7 @@ function renderGrid() {
     cell.dataset.id = cam.id;
 
     const streamUrl = `${baseUrl}/api/stream/${cam.id}`;
+    const wsUrl = `/api/ws?src=${encodeURIComponent(cam.id + '_sub')}`;
 
     let feedHtml = "";
     if (needsHubConfig) {
@@ -325,9 +352,14 @@ function renderGrid() {
         </div>
       `;
     } else {
+      const snapUrl = `${baseUrl}/api/snapshot/${cam.id}?t=${Date.now()}`;
       feedHtml = `
-        <div class="feed-wrapper" ondblclick="toggleFullscreen(event)">
-          <img class="feed-img" src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
+        <div class="feed-wrapper" ondblclick="toggleFocusCamera('${cam.id}', event)">
+          <img class="feed-ambient" id="ambient-${cam.id}" src="${snapUrl}" alt="" aria-hidden="true">
+          <img class="feed-poster" id="poster-${cam.id}" src="${snapUrl}" alt="${escapeHtml(cam.name)}">
+          <porteiro-stream class="feed-video" data-id="${cam.id}" data-quality="sub" src="${wsUrl}" style="position: relative; z-index: 2; opacity: 0; transition: opacity 0.3s ease;"></porteiro-stream>
+          <img class="feed-img fallback-feed" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;" data-src="${streamUrl}" alt="${escapeHtml(cam.name)}" loading="lazy">
+          <div class="stream-protocol-badge rtc" id="proto-${cam.id}">RTC</div>
         </div>
       `;
     }
@@ -346,28 +378,80 @@ function renderGrid() {
       <div class="cell-header">
         <div class="cell-title-box">
           <div class="status-indicator ${cam.status ? cam.status.toLowerCase() : 'connecting'}"></div>
-          <div>
-            <div class="camera-name">
-              ${escapeHtml(cam.name)}
-              ${isSubLens ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); margin-left: 6px; font-weight: 700; vertical-align: middle;">FIXA</span>` : ''}
-            </div>
-            <div class="camera-meta">${cam.status || "CONECTANDO"} | ${cam.fps || 0} FPS</div>
+          <div class="camera-name">
+            ${escapeHtml(cam.name)}
+            ${isSubLens ? `<span class="badge-sublens">FIXA</span>` : ''}
           </div>
         </div>
         <div class="cell-actions">
           ${multiLensBtn}
-          <button class="action-icon-btn" title="Capturar Foto" onclick="takeSnapshot('${cam.id}', event)">📸</button>
-          <button class="action-icon-btn" title="Ampliar / Tela Cheia" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
-          ${!isSubLens ? `<button class="action-icon-btn" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
+          <button class="btn-quality" id="btn-quality-${cam.id}" title="Alternar Resolução (SD leve vs HD 1080p nítido)" onclick="toggleCameraQuality('${cam.id}', event)">SD</button>
+          <button class="action-icon-btn btn-focus-toggle" title="Maximizar / Foco" onclick="toggleFocusCamera('${cam.id}', event)">⛶</button>
+          ${!isSubLens ? `<button class="action-icon-btn btn-settings" title="Configurar" onclick="openEditCameraModal('${cam.id}', event)">⚙️</button>` : ''}
         </div>
       </div>
       ${feedHtml}
       ${(cam.ptz_enabled && !isSubLens) ? renderPtzJoystick(cam.id) : ""}
     `;
 
+    const pStream = cell.querySelector("porteiro-stream");
+    const fallbackImg = cell.querySelector(".fallback-feed");
+    const badge = cell.querySelector(`#proto-${cam.id}`);
+
+    if (pStream && fallbackImg) {
+      let rtcTimeout = setTimeout(() => {
+        if (pStream.style.display !== "none" && (!pStream.video || pStream.video.readyState === 0)) {
+          console.warn(`[Stream] Timeout WebRTC para ${cam.id}, ativando fallback MJPEG`);
+          pStream.style.display = "none";
+          fallbackImg.src = fallbackImg.dataset.src;
+          fallbackImg.style.display = "block";
+          if (badge) {
+            badge.textContent = "MJPEG";
+            badge.className = "stream-protocol-badge mjpeg";
+          }
+        }
+      }, 12000);
+
+      pStream.addEventListener("streamconnected", (ev) => {
+        clearTimeout(rtcTimeout);
+        pStream.style.opacity = "1";
+        const posterEl = cell.querySelector(`#poster-${cam.id}`);
+        if (posterEl) {
+          posterEl.style.zIndex = "0";
+        }
+        const mode = ev.detail?.mode || "RTC";
+        if (badge) {
+          badge.textContent = mode;
+          badge.className = "stream-protocol-badge rtc";
+        }
+        pStream.style.display = "block";
+        fallbackImg.style.display = "none";
+        console.log(`[Stream] WebRTC conectado com sucesso para ${cam.id}!`);
+      });
+
+      pStream.addEventListener("streamfailed", () => {
+        clearTimeout(rtcTimeout);
+        pStream.style.display = "none";
+        fallbackImg.src = fallbackImg.dataset.src;
+        fallbackImg.style.display = "block";
+        if (badge) {
+          badge.textContent = "MJPEG";
+          badge.className = "stream-protocol-badge mjpeg";
+        }
+      });
+    }
+
     cell.addEventListener("click", (e) => {
-      if (!e.target.closest("button") && !e.target.closest(".ptz-joystick") && !needsHubConfig) {
-        toggleFocusCamera(cam.id);
+      if (e.target.closest("button") || e.target.closest(".ptz-joystick") || needsHubConfig) return;
+      
+      // Se a célula já estiver em foco (tela cheia), não precisa alternar
+      if (cell.classList.contains("focused")) return;
+
+      // Ao clicar na imagem, alterna a exibição da Lupa e configurações
+      const isShowing = cell.classList.contains("show-lupa");
+      document.querySelectorAll(".camera-cell.show-lupa").forEach(c => c.classList.remove("show-lupa"));
+      if (!isShowing) {
+        cell.classList.add("show-lupa");
       }
     });
 
@@ -391,6 +475,23 @@ function renderPtzJoystick(camId) {
   `;
 }
 
+// --- DUAL-STREAM: CONTROLE DE QUALIDADE (SD Contínuo vs HD sob demanda) ---
+function setStreamQuality(camId, quality) {
+  const cell = document.querySelector(`.camera-cell[data-id="${camId}"]`);
+  if (!cell) return;
+  const pStream = cell.querySelector("porteiro-stream");
+  if (!pStream) return;
+
+  const currentQuality = pStream.dataset.quality || "sub";
+  if (currentQuality === quality) return;
+
+  pStream.dataset.quality = quality;
+  const suffix = quality === "hd" ? "_hd" : "_sub";
+  const newSrc = `/api/ws?src=${encodeURIComponent(camId + suffix)}`;
+  console.log(`[DualStream] Câmera ${camId} comutada para ${quality.toUpperCase()}`);
+  pStream.src = newSrc;
+}
+
 // --- FOCO E TELA CHEIA ---
 function toggleFocusCamera(camId, event) {
   if (event) event.stopPropagation();
@@ -405,6 +506,13 @@ function toggleFocusCamera(camId, event) {
     cell.classList.add("focused");
     focusedCameraId = camId;
 
+    const btnFocus = cell.querySelector(".btn-focus-toggle");
+    if (btnFocus) {
+      btnFocus.textContent = "✕";
+      btnFocus.title = "Restaurar Visualização";
+      btnFocus.classList.add("active-focused");
+    }
+
     const ptz = document.getElementById(`ptz-${camId}`);
     if (ptz) ptz.style.display = "grid";
   }
@@ -412,24 +520,111 @@ function toggleFocusCamera(camId, event) {
 
 function unfocusCamera() {
   if (focusedCameraId) {
-    const old = document.querySelector(`.camera-cell[data-id="${focusedCameraId}"]`);
+    const prevId = focusedCameraId;
+    const old = document.querySelector(`.camera-cell[data-id="${prevId}"]`);
     if (old) {
       old.classList.remove("focused");
-      const ptz = document.getElementById(`ptz-${focusedCameraId}`);
+      const btnFocus = old.querySelector(".btn-focus-toggle");
+      if (btnFocus) {
+        btnFocus.textContent = "⛶";
+        btnFocus.title = "Maximizar / Foco";
+        btnFocus.classList.remove("active-focused");
+      }
+      const ptz = document.getElementById(`ptz-${prevId}`);
       if (ptz) ptz.style.display = "none";
     }
     focusedCameraId = null;
   }
 }
 
-function toggleFullscreen(event) {
+// Alterna resolução SD (ultra-rápido/leve) vs HD (1080p nítido) sob demanda sem travar expansão
+function toggleCameraQuality(camId, event) {
   if (event) event.stopPropagation();
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  } else {
-    document.exitFullscreen().catch(() => {});
+  const cell = document.querySelector(`.camera-cell[data-id="${camId}"]`);
+  if (!cell) return;
+  const pStream = cell.querySelector("porteiro-stream");
+  const btn = cell.querySelector(`#btn-quality-${camId}`);
+  if (!pStream) return;
+
+  const current = pStream.dataset.quality || "sub";
+  const target = current === "sub" ? "hd" : "sub";
+
+  if (btn) {
+    btn.textContent = target === "hd" ? "HD ⏳" : "SD";
+    btn.classList.toggle("active-hd", target === "hd");
+  }
+
+  setStreamQuality(camId, target);
+
+  pStream.addEventListener("streamconnected", () => {
+    if (btn) {
+      btn.textContent = target.toUpperCase();
+      btn.classList.toggle("active-hd", target === "hd");
+    }
+  }, { once: true });
+}
+
+function isFullscreen() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+function updateFullscreenLabels() {
+  const isFull = isFullscreen();
+  const drawerTitle = document.getElementById("drawerFullscreenTitle");
+  const drawerSub = document.getElementById("drawerFullscreenSub");
+  if (drawerTitle) {
+    drawerTitle.textContent = isFull ? "Sair da Tela Cheia" : "Tela Cheia";
+  }
+  if (drawerSub) {
+    drawerSub.textContent = isFull ? "Voltar ao modo padrão do celular" : "Expandir e ocultar barras do navegador";
   }
 }
+document.addEventListener("fullscreenchange", updateFullscreenLabels);
+document.addEventListener("webkitfullscreenchange", updateFullscreenLabels);
+
+async function toggleFullscreen(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
+  try {
+    if (!isFullscreen()) {
+      const el = document.documentElement;
+      const opts = { navigationUI: "hide" };
+      if (el.requestFullscreen) {
+        try {
+          await el.requestFullscreen(opts);
+        } catch {
+          await el.requestFullscreen();
+        }
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      } else if (el.webkitRequestFullScreen) {
+        await el.webkitRequestFullScreen();
+      } else if (el.mozRequestFullScreen) {
+        await el.mozRequestFullScreen();
+      } else if (el.msRequestFullscreen) {
+        await el.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        await document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen();
+      }
+    }
+  } catch (err) {
+    console.warn("[Fullscreen] Falha ao alternar tela cheia:", err);
+  }
+  updateFullscreenLabels();
+}
+window.toggleFullscreen = toggleFullscreen;
 
 // --- SNAPSHOT & PTZ ---
 function takeSnapshot(camId, event) {
@@ -437,7 +632,7 @@ function takeSnapshot(camId, event) {
   const baseUrl = getStreamBaseUrl();
   const link = document.createElement("a");
   link.href = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
-  link.download = `porteiro_cam_${camId}_${Date.now()}.jpg`;
+  link.download = `vision_cam_${camId}_${Date.now()}.jpg`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -531,7 +726,7 @@ function openEditCameraModal(camId, event) {
 
   const mlGroup = document.getElementById("groupMultiLens");
   if (mlGroup) {
-    mlGroup.style.display = (cam.brand === "icsee") ? "block" : "none";
+    mlGroup.style.display = (cam.brand === "icsee") ? "flex" : "none";
   }
   const mlCheck = document.getElementById("camMultiLens");
   if (mlCheck) {
@@ -544,7 +739,7 @@ function openEditCameraModal(camId, event) {
 
   document.getElementById("testResult").className = "test-alert";
   const deleteBtn = document.getElementById("deleteCameraBtn");
-  deleteBtn.style.display = "inline-block";
+  deleteBtn.style.display = "flex";
   deleteBtn.onclick = () => deleteCamera(camId);
 
   document.getElementById("cameraModal").classList.add("open");
@@ -726,6 +921,10 @@ function toggleStandbyMode() {
 
 // Pausa streams em segundo plano para liberar conexões e Wi-Fi no tablet
 function pauseGridStreams() {
+  document.querySelectorAll(".camera-cell porteiro-stream").forEach((st) => {
+    try { st.ondisconnect(); } catch (e) {}
+    st.removeAttribute("src");
+  });
   document.querySelectorAll(".camera-cell .feed-img").forEach((img) => {
     img.removeAttribute("src");
     img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -737,8 +936,14 @@ function resumeGridStreams() {
   const baseUrl = getStreamBaseUrl();
   document.querySelectorAll(".camera-cell").forEach((cell) => {
     const camId = cell.dataset.id;
+    const st = cell.querySelector("porteiro-stream");
+    if (st && camId) {
+      st.style.display = "block";
+      st.dataset.quality = "sub";
+      st.src = `/api/ws?src=${encodeURIComponent(camId + '_sub')}`;
+    }
     const img = cell.querySelector(".feed-img");
-    if (img && camId) {
+    if (img && camId && img.style.display !== "none") {
       img.src = `${baseUrl}/api/stream/${camId}`;
     }
   });
@@ -820,6 +1025,12 @@ function exitStandbyMode() {
   if (feedImg) {
     feedImg.onerror = null;
     feedImg.src = "";
+  }
+  const standbyVideo = document.getElementById("standbyFeedVideo");
+  if (standbyVideo) {
+    try { standbyVideo.ondisconnect(); } catch (e) {}
+    standbyVideo.removeAttribute("src");
+    standbyVideo.style.display = "none";
   }
 
   // Remove listeners
@@ -947,6 +1158,15 @@ function switchStandbyCamera(isInitial = false) {
   standbyCurrentCamId = nextCam.id;
   updateStandbyHud(nextCam);
 
+  const standbyVideo = document.getElementById("standbyFeedVideo");
+  if (standbyVideo) {
+    standbyVideo.style.display = "none";
+    standbyVideo.src = `/api/ws?src=${encodeURIComponent(nextCam.id + '_sub')}`;
+    standbyVideo.addEventListener("streamconnected", () => {
+      standbyVideo.style.display = "block";
+    }, { once: true });
+  }
+
   if (feedImg) {
     const baseUrl = getStreamBaseUrl();
     const streamUrl = `${baseUrl}/api/stream/${nextCam.id}?t=${Date.now()}`;
@@ -1065,6 +1285,12 @@ function prevStandbyCamera() {
   standbyCurrentCamId = prevCam.id;
   updateStandbyHud(prevCam);
 
+  const standbyVideo = document.getElementById("standbyFeedVideo");
+  if (standbyVideo) {
+    standbyVideo.style.display = "block";
+    standbyVideo.src = `/api/ws?src=${encodeURIComponent(prevCam.id)}`;
+  }
+
   const feedImg = document.getElementById("standbyFeedImg");
   if (feedImg) {
     const baseUrl = getStreamBaseUrl();
@@ -1121,11 +1347,24 @@ let isNightAwake = false;
 let nightSelectedCamId = "ALL";
 let nightDurationSec = 30;
 let nightSoundEnabled = true;
+let nightRecordEnabled = true;
 let nightPollInterval = null;
 let nightWakeTimer = null;
 let nightClockInterval = null;
 let nightPosterInterval = null;
 let nightAudioCtx = null;
+
+function selectDurationPill(val) {
+  document.querySelectorAll(".vigia-duration-pill").forEach(p => {
+    if (p.getAttribute("data-val") === String(val)) {
+      p.classList.add("active");
+    } else {
+      p.classList.remove("active");
+    }
+  });
+  const sel = document.getElementById("nightDurationSelect");
+  if (sel) sel.value = String(val);
+}
 
 function openNightModeModal() {
   const modal = document.getElementById("nightModeModal");
@@ -1162,6 +1401,7 @@ function openNightModeModal() {
   const savedDuration = localStorage.getItem("night_duration") || "30";
   const durationSelect = document.getElementById("nightDurationSelect");
   if (durationSelect) durationSelect.value = savedDuration;
+  selectDurationPill(savedDuration);
 
   const savedSound = localStorage.getItem("night_sound");
   const soundCheck = document.getElementById("nightSoundEnabled");
@@ -1172,6 +1412,18 @@ function openNightModeModal() {
   const savedSens = localStorage.getItem("night_sensitivity") || "medium";
   const sensSelect = document.getElementById("nightSensitivitySelect");
   if (sensSelect) sensSelect.value = savedSens;
+
+  const savedRecord = localStorage.getItem("night_record_enabled");
+  const recordCheck = document.getElementById("nightRecordEnabled");
+  if (recordCheck) {
+    recordCheck.checked = savedRecord !== null ? (savedRecord === "true") : true;
+  }
+
+  const savedToast = localStorage.getItem("night_toast_enabled");
+  const toastCheck = document.getElementById("nightToastEnabled");
+  if (toastCheck) {
+    toastCheck.checked = savedToast !== null ? (savedToast === "true") : true;
+  }
 
   modal.classList.add("open");
 }
@@ -1190,12 +1442,28 @@ async function startNightModeFromModal() {
   nightSelectedCamId = select ? select.value : "ALL";
   nightDurationSec = durationSelect ? (parseInt(durationSelect.value) || 30) : 30;
   nightSoundEnabled = soundCheck ? soundCheck.checked : true;
+  const recordCheck = document.getElementById("nightRecordEnabled");
+  nightRecordEnabled = recordCheck ? recordCheck.checked : true;
+  const toastCheck = document.getElementById("nightToastEnabled");
+  const nightToastEnabled = toastCheck ? toastCheck.checked : true;
   const nightSensitivity = sensSelect ? sensSelect.value : "medium";
 
   localStorage.setItem("night_cam_id", nightSelectedCamId);
   localStorage.setItem("night_duration", nightDurationSec);
   localStorage.setItem("night_sound", nightSoundEnabled);
+  localStorage.setItem("night_record_enabled", nightRecordEnabled);
+  localStorage.setItem("night_toast_enabled", nightToastEnabled);
   localStorage.setItem("night_sensitivity", nightSensitivity);
+
+  // Sincroniza configuração de notificações Windows
+  try {
+    const baseUrl = getStreamBaseUrl();
+    await fetch(`${baseUrl}/api/notifications/toggle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: nightToastEnabled })
+    });
+  } catch { }
 
   // Aplica sensibilidade imediatamente no backend
   try {
@@ -1219,12 +1487,14 @@ async function startNightModeFromModal() {
 async function enterNightMode() {
   const overlay = document.getElementById("nightOverlay");
   const btn = document.getElementById("nightModeBtn");
+  const mobileBtn = document.getElementById("mobileNightModeBtn");
   if (!overlay) return;
 
   isNightModeActive = true;
   isNightAwake = false;
 
   if (btn) btn.classList.add("active");
+  if (mobileBtn) mobileBtn.classList.add("active");
   overlay.style.display = "flex";
 
   // Atualiza etiqueta da câmera monitorada com a sensibilidade ativa
@@ -1244,13 +1514,32 @@ async function enterNightMode() {
   // Pausa streams do painel para economizar Wi-Fi e bateria no tablet
   pauseGridStreams();
 
-  // Notifica a central para desligar o RTSP das outras câmeras e liberar 100% do Wi-Fi
+  // Atualiza etiqueta de gravação (REC) no painel de descanso noturno
+  const recPill = document.getElementById("nightSleepRecPill");
+  if (recPill) {
+    if (nightRecordEnabled) {
+      recPill.textContent = "REC: ATIVO";
+      recPill.style.color = "var(--brand)";
+      recPill.style.borderColor = "rgba(61, 214, 245, 0.3)";
+      recPill.style.background = "rgba(61, 214, 245, 0.15)";
+    } else {
+      recPill.textContent = "REC: DESATIVADO";
+      recPill.style.color = "var(--text-muted)";
+      recPill.style.borderColor = "rgba(255, 255, 255, 0.1)";
+      recPill.style.background = "rgba(255, 255, 255, 0.05)";
+    }
+  }
+
+  // Notifica a central para desligar o RTSP das outras câmeras e configurar se deve gravar eventos
   try {
     const baseUrl = getStreamBaseUrl();
     fetch(`${baseUrl}/api/night_mode/enter`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ camera_id: nightSelectedCamId })
+      body: JSON.stringify({
+        camera_id: nightSelectedCamId,
+        record_events: nightRecordEnabled
+      })
     }).catch(() => {});
   } catch (err) {}
 
@@ -1282,11 +1571,13 @@ async function enterNightMode() {
 function exitNightMode() {
   const overlay = document.getElementById("nightOverlay");
   const btn = document.getElementById("nightModeBtn");
+  const mobileBtn = document.getElementById("mobileNightModeBtn");
 
   isNightModeActive = false;
   isNightAwake = false;
 
   if (btn) btn.classList.remove("active");
+  if (mobileBtn) mobileBtn.classList.remove("active");
   if (overlay) overlay.style.display = "none";
 
   // Limpa timers
@@ -1304,6 +1595,12 @@ function exitNightMode() {
   }
   if (poster) {
     poster.removeAttribute("src");
+  }
+  const wakeVideo = document.getElementById("nightWakeVideo");
+  if (wakeVideo) {
+    try { wakeVideo.ondisconnect(); } catch (e) {}
+    wakeVideo.removeAttribute("src");
+    wakeVideo.style.display = "none";
   }
 
   // Remove listeners
@@ -1381,6 +1678,12 @@ function forceNightSleep() {
   }
   if (poster) {
     poster.removeAttribute("src");
+  }
+  const wakeVideo = document.getElementById("nightWakeVideo");
+  if (wakeVideo) {
+    try { wakeVideo.ondisconnect(); } catch (e) {}
+    wakeVideo.removeAttribute("src");
+    wakeVideo.style.display = "none";
   }
 }
 
@@ -1470,6 +1773,11 @@ function triggerNightWake(camId, camName) {
   isNightAwake = true;
   if (nameEl) nameEl.textContent = (camName || "GARAGEM").toUpperCase();
 
+  const wakeRecBadge = document.getElementById("nightWakeRecBadge");
+  if (wakeRecBadge) {
+    wakeRecBadge.style.display = nightRecordEnabled ? "inline-flex" : "none";
+  }
+
   if (sleepView) sleepView.style.display = "none";
   if (wakeView) wakeView.style.display = "flex";
 
@@ -1490,16 +1798,41 @@ function triggerNightWake(camId, camName) {
   // 1. Snapshot instantâneo (Renderiza em ~20ms da memória do Hub, eliminando 100% da tela preta!)
   if (poster) {
     poster.src = snapshotUrl;
+    poster.style.display = "block";
+    poster.style.zIndex = "2";
   }
 
-  // 2. Conecta stream de vídeo contínuo MJPEG no topo
-  if (feed) {
-    feed.style.zIndex = "2";
+  // 2. Conecta stream WebRTC H.264 prioritário
+  const wakeVideo = document.getElementById("nightWakeVideo");
+  if (wakeVideo) {
+    // Mantém vídeo oculto até conectar para que o usuário veja o snapshot imediato sem tela preta nem ícone de play!
+    wakeVideo.style.display = "none";
+    wakeVideo.style.zIndex = "3";
+
+    wakeVideo.addEventListener("streamconnected", () => {
+      console.log("[NightWake] WebRTC conectado com sucesso, revelando vídeo ao vivo!");
+      wakeVideo.style.display = "block";
+      if (poster) poster.style.zIndex = "1";
+    }, { once: true });
+
+    wakeVideo.addEventListener("streamfailed", () => {
+      console.warn("[NightWake] WebRTC falhou, ativando fallback MJPEG");
+      wakeVideo.style.display = "none";
+      if (feed) {
+        feed.style.display = "block";
+        feed.style.zIndex = "3";
+        feed.src = streamUrl;
+      }
+    }, { once: true });
+
+    wakeVideo.src = `/api/ws?src=${encodeURIComponent(camId + '_sub')}`;
+  } else if (feed) {
+    feed.style.display = "block";
+    feed.style.zIndex = "3";
     feed.style.background = "transparent";
     feed.dataset.camId = camId;
     feed.src = streamUrl;
 
-    // Se houver qualquer falha no stream na WebView, recarrega o poster para nunca ficar preto
     feed.onerror = () => {
       if (isNightAwake && poster) {
         poster.src = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
@@ -1507,15 +1840,15 @@ function triggerNightWake(camId, camName) {
     };
   }
 
-  // 3. Fallback contínuo de fotos: atualiza o poster a cada 1.2s para garantir imagem mesmo com lag de Wi-Fi
+  // 3. Fallback contínuo de fotos: atualiza o poster enquanto o vídeo ao vivo não estiver visível
   clearInterval(nightPosterInterval);
   nightPosterInterval = setInterval(() => {
-    if (isNightAwake && poster && isNightModeActive) {
+    if (isNightAwake && poster && isNightModeActive && (!wakeVideo || wakeVideo.style.display === "none")) {
       poster.src = `${baseUrl}/api/snapshot/${camId}?t=${Date.now()}`;
-    } else {
+    } else if (!isNightAwake || !isNightModeActive) {
       clearInterval(nightPosterInterval);
     }
-  }, 1200);
+  }, 1500);
 
   // Toca alerta sonoro suave se habilitado
   if (nightSoundEnabled) {
@@ -1595,4 +1928,425 @@ function playNightChime() {
     osc2.start(now + 0.12);
     osc2.stop(now + 0.65);
   } catch (err) {}
+}
+
+// Recarrega o app / câmeras com feedback visual (útil para Tablet/APK)
+function refreshApp() {
+  const btn = document.getElementById('reloadBtn');
+  if (btn) {
+    btn.classList.add('loading');
+    const txt = btn.querySelector('.reload-text');
+    if (txt) txt.textContent = 'Carregando...';
+  }
+
+  // Se estiver em modo noturno ou standby, sai limpo antes de recarregar
+  try {
+    if (typeof exitNightMode === 'function') exitNightMode();
+  } catch (e) {}
+
+  setTimeout(() => {
+    window.location.reload(true);
+  }, 200);
+}
+
+window.refreshApp = refreshApp;
+
+
+// --- GESTÃO DE TEMAS VISUAIS / FUNDO ---
+const THEMES = [
+  { id: 'vision', label: 'Fundo: Vision' },
+  { id: 'oled', label: 'Fundo: OLED' },
+  { id: 'carbon', label: 'Fundo: Carbono' },
+  { id: 'graphite', label: 'Fundo: Grafite' },
+  { id: 'midnight', label: 'Fundo: Meia-Noite' }
+];
+
+function initTheme() {
+  const saved = localStorage.getItem("vision_theme") || localStorage.getItem("porteiro_theme") || "vision";
+  applyTheme(saved);
+}
+
+function applyTheme(themeId) {
+  document.documentElement.setAttribute("data-theme", themeId);
+  if (document.body) document.body.setAttribute("data-theme", themeId);
+  localStorage.setItem("vision_theme", themeId);
+  const label = document.getElementById("themePickerLabel");
+  const drawerTheme = document.getElementById("drawerThemeLabel");
+  const found = THEMES.find(t => t.id === themeId);
+  if (label && found) {
+    label.textContent = found.label;
+  }
+  if (drawerTheme && found) {
+    drawerTheme.textContent = `Ativo: ${found.label.replace('Fundo: ', '')}`;
+  }
+}
+
+function cycleTheme() {
+  const current = localStorage.getItem("vision_theme") || localStorage.getItem("porteiro_theme") || "vision";
+  const idx = THEMES.findIndex(t => t.id === current);
+  const next = THEMES[(idx + 1) % THEMES.length];
+  applyTheme(next.id);
+  const cleanName = next.label.replace('Fundo: ', '');
+  if (typeof showToast === "function") {
+    showToast(`🎨 Tema: ${cleanName}`, 2200);
+  }
+}
+window.cycleTheme = cycleTheme;
+window.applyTheme = applyTheme;
+
+// --- MENU SANDUÍCHE (MODO EM PÉ / RETRATO) ---
+function toggleMobileMenu() {
+  const drawer = document.getElementById("mobileDrawer");
+  const backdrop = document.getElementById("mobileDrawerBackdrop");
+  if (!drawer) return;
+  const isOpen = drawer.classList.contains("open");
+  if (isOpen) {
+    closeMobileMenu();
+  } else {
+    drawer.classList.add("open");
+    if (backdrop) backdrop.classList.add("open");
+    updateThemeDrawerLabel();
+  }
+}
+
+function closeMobileMenu() {
+  const drawer = document.getElementById("mobileDrawer");
+  const backdrop = document.getElementById("mobileDrawerBackdrop");
+  if (drawer) drawer.classList.remove("open");
+  if (backdrop) backdrop.classList.remove("open");
+}
+
+function updateThemeDrawerLabel() {
+  const current = localStorage.getItem("vision_theme") || "vision";
+  const found = THEMES.find(t => t.id === current);
+  const drawerTheme = document.getElementById("drawerThemeLabel");
+  if (drawerTheme && found) {
+    drawerTheme.textContent = `Ativo: ${found.label.replace('Fundo: ', '')}`;
+  }
+}
+
+window.toggleMobileMenu = toggleMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
+window.updateThemeDrawerLabel = updateThemeDrawerLabel;
+
+function openApkModal() {
+  const modal = document.getElementById("apkDownloadModal");
+  if (modal) modal.style.display = "flex";
+  if (typeof closeMobileMenu === "function") {
+    closeMobileMenu();
+  }
+}
+
+function closeApkModal() {
+  const modal = document.getElementById("apkDownloadModal");
+  if (modal) modal.style.display = "none";
+}
+window.openApkModal = openApkModal;
+window.closeApkModal = closeApkModal;
+
+function downloadApk() {
+  if (typeof showToast === "function") {
+    showToast("Iniciando download do Vision.apk...", "info");
+  }
+  
+  const a = document.createElement("a");
+  a.href = "/download/Vision.apk";
+  a.setAttribute("download", "Vision.apk");
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => {
+    window.location.assign("/download/Vision.apk");
+  }, 250);
+
+  if (typeof closeMobileMenu === "function") {
+    closeMobileMenu();
+  }
+}
+window.downloadApk = downloadApk;
+
+// Alterna entre Ajustar na Tela (contain) e Preencher 100% da Tela sem bordas (cover)
+function toggleCameraFill(camId, event) {
+  if (event) event.stopPropagation();
+  const cell = document.querySelector(`.camera-cell[data-id="${camId}"]`);
+  if (!cell) return;
+  cell.classList.toggle("fill-screen");
+  const isFilled = cell.classList.contains("fill-screen");
+  const btn = cell.querySelector(`#btn-fill-${camId}`);
+  if (btn) {
+    btn.classList.toggle("active-fill", isFilled);
+    btn.style.color = isFilled ? "var(--accent-cyan)" : "";
+    btn.style.borderColor = isFilled ? "var(--accent-cyan)" : "";
+    btn.title = isFilled ? "Modo: Preencher Tela (clique para Ajustar)" : "Modo: Ajustar na Tela (clique para Preencher)";
+  }
+}
+
+
+/* ========================================================
+   FASE 3: CONTROLLER DE GRAVAÇÕES & EVENTOS (HISTÓRICO)
+   ======================================================== */
+
+let currentEvents = [];
+let activePlayerEvent = null;
+
+async function openEventsModal() {
+  const modal = document.getElementById("eventsModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+
+  // Preenche opções de filtro com as câmeras ativas
+  const select = document.getElementById("eventsCamFilter");
+  if (select && window.cameras) {
+    const curVal = select.value;
+    select.innerHTML = '<option value="ALL">📹 Todas as Câmeras</option>';
+    window.cameras.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = `📹 ${c.name}`;
+      select.appendChild(opt);
+    });
+    if (curVal) select.value = curVal;
+  }
+
+  await loadEventsList();
+}
+
+function closeEventsModal() {
+  const modal = document.getElementById("eventsModal");
+  if (modal) modal.style.display = "none";
+}
+
+async function loadEventsList() {
+  const loading = document.getElementById("eventsLoadingState");
+  const empty = document.getElementById("eventsEmptyState");
+  const grid = document.getElementById("eventsGrid");
+  const badge = document.getElementById("eventsSummaryBadge");
+  const filter = document.getElementById("eventsCamFilter")?.value || "ALL";
+
+  if (loading) loading.style.display = "block";
+  if (empty) empty.style.display = "none";
+  if (grid) grid.innerHTML = "";
+
+  try {
+    const baseUrl = getHubBaseUrl();
+    const url = `${baseUrl}/api/recordings?camera_id=${encodeURIComponent(filter)}&limit=100&t=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const events = await res.json();
+    currentEvents = events || [];
+
+    if (loading) loading.style.display = "none";
+
+    // Atualiza contadores
+    const count = currentEvents.length;
+    let totalBytes = currentEvents.reduce((acc, ev) => acc + (ev.size_bytes || 0), 0);
+    const sizeStr = formatBytes(totalBytes);
+
+    if (badge) {
+      badge.textContent = `${count} gravação(ões) • ${sizeStr}`;
+    }
+
+    // Badge no botão superior e no menu sanduíche
+    ["eventsCountBadge", "mobileEventsBadge", "drawerEventsBadge"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (count > 0) {
+          el.style.display = "inline-block";
+          el.textContent = count > 99 ? "99+" : count;
+        } else {
+          el.style.display = "none";
+        }
+      }
+    });
+
+    if (count === 0) {
+      if (empty) empty.style.display = "block";
+      return;
+    }
+
+    // Renderiza cards de eventos
+    currentEvents.forEach(ev => {
+      const card = createEventCard(ev);
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    console.error("[Events] Erro ao carregar eventos:", err);
+    if (loading) loading.style.display = "none";
+    if (empty) {
+      empty.style.display = "block";
+      empty.querySelector("h4").textContent = "Erro ao carregar gravações";
+      empty.querySelector("p").textContent = err.message;
+    }
+  }
+}
+
+function createEventCard(ev) {
+  const card = document.createElement("div");
+  card.className = "event-card";
+
+  const baseUrl = getHubBaseUrl();
+  const thumbUrl = `${baseUrl}/api/recordings/thumb/${ev.thumb_file}`;
+  const videoUrl = `${baseUrl}/api/recordings/video/${ev.video_file}`;
+
+  card.innerHTML = `
+    <div class="event-thumb-box" onclick="playEvent('${ev.id}')">
+      <img src="${thumbUrl}" class="event-thumb-img" alt="${ev.camera_name}" onerror="this.src='/static/favicon-32.png'; this.style.objectFit='contain';">
+      <div class="event-play-overlay">
+        <div class="event-play-icon">▶</div>
+      </div>
+      <div class="event-cam-tag">${ev.camera_name}</div>
+      <div class="event-duration-tag">⏱️ ${ev.duration_sec || 15}s</div>
+    </div>
+    <div class="event-details">
+      <div class="event-time-row">
+        <span>📅 ${ev.date_str}</span>
+        <span>🕒 ${ev.time_str}</span>
+      </div>
+      <div class="event-size-row">
+        <span>🎬 Clipe H.264 (.MP4)</span>
+        <span>💾 ${ev.size_str}</span>
+      </div>
+      <div class="event-actions-row">
+        <button class="event-action-btn" onclick="playEvent('${ev.id}')" title="Assistir clipe">
+          ▶️ Assistir
+        </button>
+        <a class="event-action-btn" href="${videoUrl}" download="${ev.camera_name}_${ev.date_str}_${ev.time_str}.mp4" title="Baixar clipe para o dispositivo">
+          ⬇️ Baixar
+        </a>
+        <button class="event-action-btn btn-delete" onclick="deleteEvent('${ev.id}')" title="Excluir gravação">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+function playEvent(id) {
+  const ev = currentEvents.find(e => e.id === id);
+  if (!ev) return;
+  activePlayerEvent = ev;
+
+  const modal = document.getElementById("eventPlayerModal");
+  const title = document.getElementById("eventPlayerTitle");
+  const video = document.getElementById("eventPlayerVideo");
+  const downloadBtn = document.getElementById("eventPlayerDownloadBtn");
+  const deleteBtn = document.getElementById("eventPlayerDeleteBtn");
+
+  if (!modal || !video) return;
+
+  const baseUrl = getHubBaseUrl();
+  const videoUrl = `${baseUrl}/api/recordings/video/${ev.video_file}`;
+
+  title.textContent = `📹 ${ev.camera_name} • ${ev.date_str} às ${ev.time_str} (${ev.duration_sec || 15}s)`;
+  video.src = videoUrl;
+  video.currentTime = 0;
+  video.play().catch(() => {});
+
+  if (downloadBtn) {
+    downloadBtn.href = videoUrl;
+    downloadBtn.download = `${ev.camera_name}_${ev.date_str}_${ev.time_str}.mp4`;
+  }
+
+  if (deleteBtn) {
+    deleteBtn.onclick = () => deleteEvent(ev.id, true);
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeEventPlayer() {
+  const modal = document.getElementById("eventPlayerModal");
+  const video = document.getElementById("eventPlayerVideo");
+  if (video) {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  }
+  if (modal) modal.style.display = "none";
+  activePlayerEvent = null;
+}
+
+async function deleteEvent(id, closePlayerAfter = false) {
+  if (!confirm("Tem certeza que deseja excluir esta gravação de 15s?")) return;
+
+  try {
+    const baseUrl = getHubBaseUrl();
+    const res = await fetch(`${baseUrl}/api/recordings/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      if (closePlayerAfter) closeEventPlayer();
+      await loadEventsList();
+    } else {
+      alert("Erro ao excluir gravação.");
+    }
+  } catch (err) {
+    alert("Erro na requisição: " + err.message);
+  }
+}
+
+async function triggerManualRecording(camId) {
+  try {
+    const baseUrl = getHubBaseUrl();
+    const res = await fetch(`${baseUrl}/api/recordings/trigger/${camId}`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`🎬 ${data.message || "Gravação iniciada!"}`);
+    } else {
+      showToast(`⚠️ ${data.error || "Não foi possível gravar"}`);
+    }
+  } catch (err) {
+    showToast("⚠️ Erro ao iniciar gravação manual");
+  }
+}
+
+function showToast(message, duration = 3500) {
+  let toastEl = document.getElementById("visionWebToast");
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.id = "visionWebToast";
+    toastEl.style.cssText = "position: fixed; bottom: 24px; right: 24px; background: #111C33; color: #EAF2FF; border: 1px solid #3DD6F5; box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 16px rgba(61,214,245,0.25); border-radius: 10px; padding: 12px 20px; font-size: 13px; font-weight: 600; z-index: 99999; display: flex; align-items: center; gap: 10px; transform: translateY(20px); opacity: 0; transition: all 0.25s ease; pointer-events: none;";
+    document.body.appendChild(toastEl);
+  }
+
+  toastEl.innerHTML = message;
+  toastEl.style.transform = "translateY(0)";
+  toastEl.style.opacity = "1";
+
+  if (window._visionToastTimer) clearTimeout(window._visionToastTimer);
+  window._visionToastTimer = setTimeout(() => {
+    toastEl.style.transform = "translateY(20px)";
+    toastEl.style.opacity = "0";
+  }, duration);
+}
+
+async function testToastNotification() {
+  try {
+    const btn = document.getElementById("notifTestBtn");
+    if (btn) btn.style.opacity = "0.5";
+    showToast("⏳ Disparando notificação nativa no Windows...");
+
+    const baseUrl = getStreamBaseUrl();
+    const res = await fetch(`${baseUrl}/api/notifications/test`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast("🔔 Notificação Toast enviada ao Windows com foto!");
+    } else {
+      showToast(`⚠️ ${data.message || data.error || "Falha ao disparar"}`);
+    }
+  } catch (err) {
+    showToast("⚠️ Erro de conexão ao testar notificação: " + err.message);
+  } finally {
+    const btn = document.getElementById("notifTestBtn");
+    if (btn) btn.style.opacity = "1";
+  }
+}
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 MB";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }

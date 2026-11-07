@@ -1587,22 +1587,22 @@ video::-webkit-media-controls-overlay-enclosure,
 
   /* Espaçamento amplo e hitboxes touch-friendly para evitar toques acidentais */
   .cell-actions {
-    gap: 14px !important;
+    gap: 18px !important;
   }
 
   .action-icon-btn.btn-focus-toggle,
   .action-icon-btn.btn-settings {
-    width: 38px !important;
-    height: 38px !important;
-    font-size: 17px !important;
-    border-radius: 9px !important;
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 18px !important;
+    border-radius: 10px !important;
   }
 
   .btn-quality {
-    min-width: 48px !important;
-    height: 38px !important;
-    font-size: 12px !important;
-    border-radius: 9px !important;
+    min-width: 52px !important;
+    height: 42px !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
     padding: 0 12px !important;
   }
 
@@ -1612,8 +1612,9 @@ video::-webkit-media-controls-overlay-enclosure,
 
   .hamburger-btn,
   .header-action-btn {
-    width: 38px !important;
-    height: 38px !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
   }
 
   .form-row {

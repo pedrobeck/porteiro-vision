@@ -38,20 +38,11 @@ function registerPWA() {
 
 // --- FUNÇÃO ROBUSTA DE DOWNLOAD DO APK ---
 function triggerApkDownload(source) {
-  const url = source === 'local' 
-    ? '/download/Vision.apk?t=' + Date.now()
-    : 'https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk';
+  const url = (source === 'github')
+    ? 'https://github.com/pedrobeck/porteiro-vision/releases/download/v2.0.0-apk/Vision.apk'
+    : '/download/Vision.apk?t=' + Date.now();
   
-  const a = document.createElement('a');
-  a.href = url;
-  a.setAttribute('download', 'Vision.apk');
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    try { a.remove(); } catch (e) {}
-  }, 1000);
+  window.location.href = url;
 }
 window.triggerApkDownload = triggerApkDownload;
 
@@ -735,7 +726,7 @@ function openEditCameraModal(camId, event) {
 
   const mlGroup = document.getElementById("groupMultiLens");
   if (mlGroup) {
-    mlGroup.style.display = (cam.brand === "icsee") ? "block" : "none";
+    mlGroup.style.display = (cam.brand === "icsee") ? "flex" : "none";
   }
   const mlCheck = document.getElementById("camMultiLens");
   if (mlCheck) {
@@ -748,7 +739,7 @@ function openEditCameraModal(camId, event) {
 
   document.getElementById("testResult").className = "test-alert";
   const deleteBtn = document.getElementById("deleteCameraBtn");
-  deleteBtn.style.display = "inline-block";
+  deleteBtn.style.display = "flex";
   deleteBtn.onclick = () => deleteCamera(camId);
 
   document.getElementById("cameraModal").classList.add("open");
